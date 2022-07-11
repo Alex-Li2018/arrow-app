@@ -5,9 +5,7 @@
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Document</title>
-    <link href="neo4jd3.css" rel="stylesheet"></link>
-    <script src="https://d3js.org/d3.v7.min.js"></script>
-    <script src="neo4jd3.js"></script>
+    <script src="./index.js"></script>
     <style>
         body {
             margin: 0;
@@ -21,10 +19,11 @@
     </style>
 </head>
 <body>
-    <div 
-        id="neo4j-d3" 
+    <canvas 
+        id="canvas" 
+        style="width: 100%; height: 100%;"
     >
-    </div>
+    </canvas>
     
     <script>
         const neo4jData = {
@@ -188,24 +187,11 @@
             ],
             "errors": []
         }
-        const neo4jd3 = new Neo4jd3('#neo4j-d3', {
-            neo4jData,
-            highlight: [],
-            highlightRelationShip: [],
-            showNodePlate: false,
-            iconMap: {
-                'rich-text': 'e65f',
-            },
-            onMenuNodeClick({ name, status, metaData }) {
-               console.log( name, status, metaData )
-            },
-            onGetLegend(data) {
-                console.log(data)
-            },
-            onNodeDoubleClick(e, d, d3) {
-                console.log(e, d, d3)
-            }
-        });
+
+        new RenderCanvas('#canvas', neo4jData.results, {
+            width: '100%',
+            height: '100%'
+        })
     </script>
 </body>
 </html>
