@@ -26,7 +26,7 @@ export const computeRelationshipAttachments = (graph, visualNodes) => {
     }
 
     graph.relationships.forEach(relationship => {
-        const style = styleAttribute => getStyleSelector(relationship, styleAttribute)(graph)
+        const style = styleAttribute => (relationship, styleAttribute)(graph)
         countAttachment(relationship.fromId, style('attachment-start'))
         countAttachment(relationship.toId, style('attachment-end'))
     })
@@ -43,7 +43,7 @@ export const computeRelationshipAttachments = (graph, visualNodes) => {
     }
 
     const routedRelationships = graph.relationships.map(relationship => {
-        const style = styleAttribute => getStyleSelector(relationship, styleAttribute)(graph)
+        const style = styleAttribute => getStyleSelector(relationship, styleAttribute, graph)
         const startAttachment = centralAttachment(relationship.fromId, style('attachment-start'))
         const endAttachment = centralAttachment(relationship.toId, style('attachment-end'))
         const resolvedRelationship = new ResolvedRelationship(

@@ -9,7 +9,7 @@ import {
 } from "../model/colors";
 
 export const relationshipArrowDimensions = (resolvedRelationship, graph, leftNode) => {
-    const style = styleKey => getStyleSelector(resolvedRelationship.relationship, styleKey)(graph)
+    const style = styleKey => getStyleSelector(resolvedRelationship.relationship, styleKey, graph)
     const startRadius = resolvedRelationship.from.radius + style('margin-start')
     const endRadius = resolvedRelationship.to.radius + style('margin-end')
     const arrowWidth = style('arrow-width')

@@ -1,7 +1,4 @@
 import {
-    createSelector
-} from "reselect";
-import {
     validate
 } from "../model/styling";
 
@@ -14,8 +11,7 @@ const specificOrGeneral = (styleKey, entity, graphStyle) => {
     return graphStyle[styleKey]
 }
 
-export const getStyleSelector = (entity, styleKey) =>
-    createSelector(
-        graphStyleSelector,
-        graphStyle => validate(styleKey, specificOrGeneral(styleKey, entity, graphStyle))
-    )
+export const getStyleSelector = (entity, styleKey, graph) => {
+    const styleMap = graphStyleSelector(graph)
+    return validate(styleKey, specificOrGeneral(styleKey, entity, styleMap))
+}

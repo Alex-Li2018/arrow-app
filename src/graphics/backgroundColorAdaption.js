@@ -1,7 +1,6 @@
 import {
     white
 } from "../model/colors";
-import memoize from "memoizee";
 
 export const adaptForBackground = (color, style) => {
     const backgroundColor = style('background-color')
@@ -20,9 +19,8 @@ const adapt = (() => {
             Math.abs(distanceFromWhite - secondary.distance(backgroundColor)) ? primary : secondary
         return bestColor.toString()
     }
-    return memoize(factory, {
-        max: 100
-    })
+
+    return factory
 })()
 
 const parse = (colorString) => new ColorVector(components(colorString))

@@ -30,7 +30,7 @@ export class VisualRelationship {
         this.arrow = arrow
         this.editing = editing
 
-        const style = styleAttribute => getStyleSelector(resolvedRelationship.relationship, styleAttribute)(graph)
+        const style = styleAttribute => getStyleSelector(resolvedRelationship.relationship, styleAttribute, graph)
 
         const orientationName = style('detail-orientation');
         const positionName = style('detail-position')

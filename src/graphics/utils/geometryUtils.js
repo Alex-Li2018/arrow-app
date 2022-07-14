@@ -8,7 +8,7 @@ export const calculateBoundingBox = (nodes, graph, scale = 1) => {
     }
 
     const getPosition = node => node.position.scale(scale)
-    const radius = node => getStyleSelector(node, 'radius')(graph) * scale
+    const radius = node => getStyleSelector(node, 'radius', graph) * scale
 
     const left = Math.min(...nodes.map(node => getPosition(node).x - radius(node)))
     const right = Math.max(...nodes.map(node => getPosition(node).x + radius(node)))

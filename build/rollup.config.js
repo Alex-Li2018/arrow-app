@@ -6,11 +6,11 @@ import { terser } from "rollup-plugin-terser";
 const plugins = [
     scss()
 ]
-let file = './dist/neo4jd3.js'
+let file = './dist/arrowApp.js'
 
 if (process.env.NODE_ENV === 'production') {
     plugins.push(terser())
-    file = './dist/neo4jd3.min.js'
+    file = './dist/arrowApp.min.js'
 } 
 
 export default {
@@ -19,7 +19,7 @@ export default {
     output: {
         file,
         format: 'umd',
-        name: 'Neo4jd3',
+        name: 'arrowApp',
     },
     plugins
 };

@@ -59,7 +59,7 @@ export default class VisualNode {
         this.selected = selected
         this.editing = editing
 
-        const style = styleAttribute => getStyleSelector(node, styleAttribute)(graph)
+        const style = styleAttribute => getStyleSelector(node, styleAttribute, graph)
 
         this.internalRadius = style('radius')
         this.radius = this.internalRadius + style('border-width')
