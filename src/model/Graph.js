@@ -78,6 +78,7 @@ export const usedCodePoints = (graph) => {
 export const neighbourPositions = (node, graph) => {
     return graph.relationships
         .filter(relationship => node.id === relationship.fromId || node.id === relationship.toId)
+        // 不直接指向自己
         .filter(relationship => relationship.fromId !== relationship.toId)
         .map(relationship => {
             const otherId = otherNodeId(relationship, node.id);

@@ -1,5 +1,6 @@
 import { merge } from './utils/util'
 import { getVisualGraph } from './state/graphState'
+import { Point } from './model/Point'
 
 // canvas layer manager
 const layerManager = (() => {
@@ -18,7 +19,7 @@ const layerManager = (() => {
     }
 })()
 
-export default class RenderCanvas {
+export default class ArrowApp {
     constructor(domString, graph, options) {
         this.canvas = document.getElementById(domString)
 
@@ -29,6 +30,8 @@ export default class RenderCanvas {
 
         merge(this.options, options)
 
+        this.initPointClass(graph)
+
         this.fitCanvasSize(this.canvas, this.options)
         const visualsData = getVisualGraph(graph, '', '')
 
@@ -36,6 +39,14 @@ export default class RenderCanvas {
             visualsData,
             options
         })
+    }
+
+    // 给节点的每一个point坐标装上Point类
+    initPointClass(graph) {
+        graph.nodes = graph.nodes.map(item => ({
+            ...item,
+            position: new Point(item.position.x, item.position.y)
+        }));
     }
 
     fitCanvasSize(canvas, {

@@ -10,18 +10,28 @@ import VisualGraph from "../graphics/VisualGraph";
 import {
     bundle
 } from "../model/graph/relationshipBundling";
+import {
+    nodeEditing,
+    nodeSelected,
+    relationshipSelected,
+} from "../model/selection";
+import CanvasAdaptor from "../graphics/utils/CanvasAdaptor";
 
-function getVisualNode(node, graph, selection, cachedImages) {
+export const measureTextContext = (() => {
+    const canvas = window.document.createElement('canvas')
+    return new CanvasAdaptor(canvas.getContext('2d'))
+})()
+
+export function getVisualNode(node, graph, selection, cachedImages) {
     return new VisualNode(
         node,
         graph,
-        nodeSelected(selection, node.id),
-        nodeEditing(selection, node.id),
+        true,
+        false,
         measureTextContext,
         cachedImages
     )
 }
-
 
 export function getVisualGraph(graph, selection, cachedImages) {
     const visualNodes = graph.nodes.reduce((nodeMap, node) => {

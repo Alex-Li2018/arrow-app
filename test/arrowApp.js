@@ -4106,9 +4106,10 @@
         }
 
         initPointClass(graph) {
-            graph.node.forEach(item => {
-                item.position = new Point(...item.position);
-            });
+            graph.nodes = graph.nodes.map(item => ({
+                ...item,
+                position: new Point(item.position.x, item.position.y)
+            }));
         }
 
         fitCanvasSize(canvas, {

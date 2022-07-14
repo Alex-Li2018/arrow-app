@@ -19,7 +19,7 @@ export default {
     output: {
         file,
         format: 'umd',
-        name: 'arrowApp',
+        name: 'ArrowApp',
     },
     plugins
 };

@@ -5,7 +5,7 @@
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Document</title>
-    <script src="./index.js"></script>
+    <script src="./arrowApp.js"></script>
     <style>
         body {
             margin: 0;
@@ -26,7 +26,7 @@
     </canvas>
     
     <script>
-        const neo4jData = {
+        const graphData = {
             "nodes": [
                 {
                     "id": "n0",
@@ -191,9 +191,9 @@
         }
 
         
-        new RenderCanvas('#canvas', neo4jData, {
-            width: '100%',
-            height: '100%'
+        new ArrowApp('canvas', graphData, {
+            width: 600,
+            height: 800
         })
     </script>
 </body>

@@ -58,14 +58,16 @@ export default class VisualNode {
         this.node = node
         this.selected = selected
         this.editing = editing
-
+        // 获取style属性
         const style = styleAttribute => getStyleSelector(node, styleAttribute, graph)
 
         this.internalRadius = style('radius')
         this.radius = this.internalRadius + style('border-width')
         this.outsideComponentRadius = this.radius + style('node-margin')
         this.fitRadius = this.internalRadius - style('node-padding')
+        // 节点的背景色
         this.background = new NodeBackground(node.position, this.internalRadius, editing, style, imageCache)
+        // todo ？？？
         const neighbourObstacles = neighbourPositions(node, graph).map(position => {
             return {
                 angle: position.vectorFrom(node.position).angle()
