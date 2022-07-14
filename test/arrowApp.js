@@ -1313,6 +1313,7 @@
     const neighbourPositions = (node, graph) => {
         return graph.relationships
             .filter(relationship => node.id === relationship.fromId || node.id === relationship.toId)
+            // 不直接指向自己
             .filter(relationship => relationship.fromId !== relationship.toId)
             .map(relationship => {
                 const otherId = otherNodeId(relationship, node.id);
@@ -2016,14 +2017,16 @@
             this.node = node;
             this.selected = selected;
             this.editing = editing;
-
+            // 获取style属性
             const style = styleAttribute => getStyleSelector(node, styleAttribute, graph);
 
             this.internalRadius = style('radius');
             this.radius = this.internalRadius + style('border-width');
             this.outsideComponentRadius = this.radius + style('node-margin');
             this.fitRadius = this.internalRadius - style('node-padding');
+            // 节点的背景色
             this.background = new NodeBackground(node.position, this.internalRadius, editing, style, imageCache);
+            // todo ？？？
             const neighbourObstacles = neighbourPositions(node, graph).map(position => {
                 return {
                     angle: position.vectorFrom(node.position).angle()
@@ -2752,7 +2755,7 @@
         };
 
         graph.relationships.forEach(relationship => {
-            const style = styleAttribute => (styleAttribute)(graph);
+            const style = styleAttribute => getStyleSelector(relationship, styleAttribute, graph);
             countAttachment(relationship.fromId, style('attachment-start'));
             countAttachment(relationship.toId, style('attachment-end'));
         });
@@ -2772,6 +2775,7 @@
             const style = styleAttribute => getStyleSelector(relationship, styleAttribute, graph);
             const startAttachment = centralAttachment(relationship.fromId, style('attachment-start'));
             const endAttachment = centralAttachment(relationship.toId, style('attachment-end'));
+
             const resolvedRelationship = new ResolvedRelationship(
                 relationship,
                 visualNodes[relationship.fromId],
@@ -2779,8 +2783,11 @@
                 startAttachment,
                 endAttachment,
                 false,
-                graph);
+                graph
+            );
+
             let arrow;
+            
             if (startAttachment.attachment.name !== 'normal' || endAttachment.attachment.name !== 'normal') {
                 if (startAttachment.attachment.name !== 'normal' && endAttachment.attachment.name !== 'normal') {
                     const dimensions = relationshipArrowDimensions(resolvedRelationship, graph, resolvedRelationship.from);
@@ -2821,6 +2828,7 @@
                 .filter(routedRelationship =>
                     node.id === routedRelationship.resolvedRelationship.from.id ||
                     node.id === routedRelationship.resolvedRelationship.to.id);
+
             attachmentOptions.forEach(option => {
                 const relevantRelationships = relationships.filter(routedRelationship => {
                     const startAttachment = routedRelationship.resolvedRelationship.startAttachment;
@@ -2828,6 +2836,7 @@
                     return (startAttachment.attachment === option && node.id === routedRelationship.resolvedRelationship.from.id) ||
                         (endAttachment.attachment === option && node.id === routedRelationship.resolvedRelationship.to.id)
                 });
+
                 const neighbours = relevantRelationships.map(routedRelationship => {
                     const direction = (
                         routedRelationship.resolvedRelationship.from.id === node.id &&
@@ -2855,10 +2864,13 @@
                         headSpace
                     }
                 });
+
                 const maxHeadSpace = Math.max(...neighbours.map(neighbour => neighbour.headSpace));
+
                 neighbours.sort((a, b) => {
                     return (a.path && b.path) ? compareWaypoints(a.path.waypoints, b.path.waypoints) : 0
                 });
+                
                 neighbours.forEach((neighbour, i) => {
                     relationshipAttachments[neighbour.direction][neighbour.relationship.id] = {
                         attachment: option,
@@ -3407,6 +3419,17 @@
         return new Vector(horizontalPosition, -height / 2)
     };
 
+    const nodeSelected = (selection, nodeId) => {
+        return selection.entities.some(entity =>
+            entity.entityType === 'node' && entity.id === nodeId
+        )
+    };
+
+    const nodeEditing = (selection, nodeId) => {
+        return selection.editing &&
+            selection.editing.entityType === 'node' && selection.editing.id === nodeId
+    };
+
     const relationshipSelected = (selection, relationshipId) => {
         return selection.entities.some(entity =>
             entity.entityType === 'relationship' && entity.id === relationshipId
@@ -3837,7 +3860,7 @@
         return Object.values(bundles)
     };
 
-    class CanvasAdaptor$1 {
+    class CanvasAdaptor {
         constructor(ctx) {
             this.ctx = ctx;
         }
@@ -4027,28 +4050,31 @@
 
     const measureTextContext = (() => {
         const canvas = window.document.createElement('canvas');
-        return new CanvasAdaptor$1(canvas.getContext('2d'))
+        return new CanvasAdaptor(canvas.getContext('2d'))
     })();
 
     function getVisualNode(node, graph, selection, cachedImages) {
         return new VisualNode(
             node,
             graph,
-            true,
-            false,
+            nodeSelected(selection, node.id),
+            nodeEditing(selection, node.id),
             measureTextContext,
             cachedImages
         )
     }
 
     function getVisualGraph(graph, selection, cachedImages) {
+        // node -> VisualNode
         const visualNodes = graph.nodes.reduce((nodeMap, node) => {
             nodeMap[node.id] = getVisualNode(node, graph, selection, cachedImages);
             return nodeMap
         }, {});
 
+        // 计算边
         const relationshipAttachments = computeRelationshipAttachments(graph, visualNodes);
 
+        // relationship -> ResolvedRelationship
         const resolvedRelationships = graph.relationships.map(relationship =>
             new ResolvedRelationship(
                 relationship,
@@ -4056,9 +4082,12 @@
                 visualNodes[relationship.toId],
                 relationshipAttachments.start[relationship.id],
                 relationshipAttachments.end[relationship.id],
+                // 是否被选中
                 relationshipSelected(selection, relationship.id),
-                graph)
+                graph
+            )
         );
+
         const relationshipBundles = bundle(resolvedRelationships).map(bundle => {
             return new RoutedRelationshipBundle(bundle, graph, selection, measureTextContext, cachedImages);
         });
@@ -4086,6 +4115,10 @@
     class ArrowApp {
         constructor(domString, graph, options) {
             this.canvas = document.getElementById(domString);
+            this.selection = {
+                editing: undefined,
+                entities: []
+            };
 
             this.options = {
                 width: '100%',
@@ -4097,14 +4130,15 @@
             this.initPointClass(graph);
 
             this.fitCanvasSize(this.canvas, this.options);
-            const visualsData = getVisualGraph(graph, '', '');
+            const visualGraph = getVisualGraph(graph, this.selection, '');
 
             this.renderVisuals({
-                visualsData,
-                options
+                visualGraph,
+                displayOptions: this.options
             });
         }
 
+        // 给节点的每一个点装上Point类
         initPointClass(graph) {
             graph.nodes = graph.nodes.map(item => ({
                 ...item,
@@ -4147,10 +4181,11 @@
         }
 
         // 可视化渲染
-        renderVisuals = ({
+        renderVisuals({
             visualGraph,
             displayOptions
-        }) => {
+        }) {
+            console.log(visualGraph, displayOptions);
             const ctx = this.canvas.getContext('2d');
             ctx.clearRect(0, 0, displayOptions.width, displayOptions.height);
         

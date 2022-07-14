@@ -26,21 +26,24 @@ export function getVisualNode(node, graph, selection, cachedImages) {
     return new VisualNode(
         node,
         graph,
-        true,
-        false,
+        nodeSelected(selection, node.id),
+        nodeEditing(selection, node.id),
         measureTextContext,
         cachedImages
     )
 }
 
 export function getVisualGraph(graph, selection, cachedImages) {
+    // node -> VisualNode
     const visualNodes = graph.nodes.reduce((nodeMap, node) => {
         nodeMap[node.id] = getVisualNode(node, graph, selection, cachedImages)
         return nodeMap
     }, {})
 
+    // 计算边
     const relationshipAttachments = computeRelationshipAttachments(graph, visualNodes)
 
+    // relationship -> ResolvedRelationship
     const resolvedRelationships = graph.relationships.map(relationship =>
         new ResolvedRelationship(
             relationship,
@@ -48,9 +51,12 @@ export function getVisualGraph(graph, selection, cachedImages) {
             visualNodes[relationship.toId],
             relationshipAttachments.start[relationship.id],
             relationshipAttachments.end[relationship.id],
+            // 是否被选中
             relationshipSelected(selection, relationship.id),
-            graph)
+            graph
+        )
     )
+
     const relationshipBundles = bundle(resolvedRelationships).map(bundle => {
         return new RoutedRelationshipBundle(bundle, graph, selection, measureTextContext, cachedImages);
     })

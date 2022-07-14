@@ -1,6 +1,7 @@
 import { merge } from './utils/util'
 import { getVisualGraph } from './state/graphState'
 import { Point } from './model/Point'
+import CanvasAdaptor from "./graphics/utils/CanvasAdaptor";
 
 // canvas layer manager
 const layerManager = (() => {
@@ -22,6 +23,10 @@ const layerManager = (() => {
 export default class ArrowApp {
     constructor(domString, graph, options) {
         this.canvas = document.getElementById(domString)
+        this.selection = {
+            editing: undefined,
+            entities: []
+        }
 
         this.options = {
             width: '100%',
@@ -33,15 +38,15 @@ export default class ArrowApp {
         this.initPointClass(graph)
 
         this.fitCanvasSize(this.canvas, this.options)
-        const visualsData = getVisualGraph(graph, '', '')
+        const visualGraph = getVisualGraph(graph, this.selection, '')
 
         this.renderVisuals({
-            visualsData,
-            options
+            visualGraph,
+            displayOptions: this.options
         })
     }
 
-    // 给节点的每一个point坐标装上Point类
+    // 给节点的每一个点装上Point类
     initPointClass(graph) {
         graph.nodes = graph.nodes.map(item => ({
             ...item,
@@ -84,10 +89,11 @@ export default class ArrowApp {
     }
 
     // 可视化渲染
-    renderVisuals = ({
+    renderVisuals({
         visualGraph,
         displayOptions
-    }) => {
+    }) {
+        console.log(visualGraph, displayOptions)
         const ctx = this.canvas.getContext('2d');
         ctx.clearRect(0, 0, displayOptions.width, displayOptions.height);
     

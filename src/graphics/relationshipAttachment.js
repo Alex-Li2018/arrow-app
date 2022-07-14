@@ -26,7 +26,7 @@ export const computeRelationshipAttachments = (graph, visualNodes) => {
     }
 
     graph.relationships.forEach(relationship => {
-        const style = styleAttribute => (relationship, styleAttribute)(graph)
+        const style = styleAttribute => getStyleSelector(relationship, styleAttribute, graph)
         countAttachment(relationship.fromId, style('attachment-start'))
         countAttachment(relationship.toId, style('attachment-end'))
     })
@@ -46,6 +46,7 @@ export const computeRelationshipAttachments = (graph, visualNodes) => {
         const style = styleAttribute => getStyleSelector(relationship, styleAttribute, graph)
         const startAttachment = centralAttachment(relationship.fromId, style('attachment-start'))
         const endAttachment = centralAttachment(relationship.toId, style('attachment-end'))
+
         const resolvedRelationship = new ResolvedRelationship(
             relationship,
             visualNodes[relationship.fromId],
@@ -53,8 +54,11 @@ export const computeRelationshipAttachments = (graph, visualNodes) => {
             startAttachment,
             endAttachment,
             false,
-            graph)
+            graph
+        )
+
         let arrow
+        
         if (startAttachment.attachment.name !== 'normal' || endAttachment.attachment.name !== 'normal') {
             if (startAttachment.attachment.name !== 'normal' && endAttachment.attachment.name !== 'normal') {
                 const dimensions = relationshipArrowDimensions(resolvedRelationship, graph, resolvedRelationship.from)
@@ -95,6 +99,7 @@ export const computeRelationshipAttachments = (graph, visualNodes) => {
             .filter(routedRelationship =>
                 node.id === routedRelationship.resolvedRelationship.from.id ||
                 node.id === routedRelationship.resolvedRelationship.to.id)
+
         attachmentOptions.forEach(option => {
             const relevantRelationships = relationships.filter(routedRelationship => {
                 const startAttachment = routedRelationship.resolvedRelationship.startAttachment
@@ -102,6 +107,7 @@ export const computeRelationshipAttachments = (graph, visualNodes) => {
                 return (startAttachment.attachment === option && node.id === routedRelationship.resolvedRelationship.from.id) ||
                     (endAttachment.attachment === option && node.id === routedRelationship.resolvedRelationship.to.id)
             })
+
             const neighbours = relevantRelationships.map(routedRelationship => {
                 const direction = (
                     routedRelationship.resolvedRelationship.from.id === node.id &&
@@ -129,10 +135,13 @@ export const computeRelationshipAttachments = (graph, visualNodes) => {
                     headSpace
                 }
             })
+
             const maxHeadSpace = Math.max(...neighbours.map(neighbour => neighbour.headSpace))
+
             neighbours.sort((a, b) => {
                 return (a.path && b.path) ? compareWaypoints(a.path.waypoints, b.path.waypoints) : 0
             })
+            
             neighbours.forEach((neighbour, i) => {
                 relationshipAttachments[neighbour.direction][neighbour.relationship.id] = {
                     attachment: option,
