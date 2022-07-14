@@ -1,4 +1,6 @@
 import { merge } from './utils/util'
+import { getVisualGraph } from './state/graphState'
+
 // canvas layer manager
 const layerManager = (() => {
     let layers = []
@@ -16,8 +18,8 @@ const layerManager = (() => {
     }
 })()
 
-class RenderCanvas {
-    constructor(domString, visualsData, options) {
+export default class RenderCanvas {
+    constructor(domString, graph, options) {
         this.canvas = document.getElementById(domString)
 
         this.options = {
@@ -28,6 +30,7 @@ class RenderCanvas {
         merge(this.options, options)
 
         this.fitCanvasSize(this.canvas, this.options)
+        const visualsData = getVisualGraph(graph, '', '')
 
         this.renderVisuals({
             visualsData,
@@ -69,11 +72,11 @@ class RenderCanvas {
         return ratio
     }
 
+    // 可视化渲染
     renderVisuals = ({
         visualGraph,
         displayOptions
     }) => {
-    
         const ctx = this.canvas.getContext('2d');
         ctx.clearRect(0, 0, displayOptions.width, displayOptions.height);
     
