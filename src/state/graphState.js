@@ -56,10 +56,12 @@ export function getVisualGraph(graph, selection, cachedImages) {
             graph
         )
     )
-
+    
+    // 对应的边的箭头样式
     const relationshipBundles = bundle(resolvedRelationships).map(bundle => {
         return new RoutedRelationshipBundle(bundle, graph, selection, measureTextContext, cachedImages);
     })
 
+    // 可视化图
     return new VisualGraph(graph, visualNodes, relationshipBundles, measureTextContext)
 }
