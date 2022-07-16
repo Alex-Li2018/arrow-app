@@ -2,6 +2,7 @@ import { merge } from './utils/util'
 import { getVisualGraph } from './state/graphState'
 import { Point } from './model/Point'
 import CanvasAdaptor from "./graphics/utils/CanvasAdaptor";
+import { calculateViewportTranslation } from './middlewares/viewportMiddleware'
 
 // canvas layer manager
 const layerManager = (() => {
@@ -39,6 +40,8 @@ export default class ArrowApp {
 
         this.fitCanvasSize(this.canvas, this.options)
         const visualGraph = getVisualGraph(graph, this.selection, '')
+        const res = calculateViewportTranslation(visualGraph, {width: this.options.width, height: this.options.height})
+        console.log(res)
 
         this.renderVisuals({
             visualGraph,
