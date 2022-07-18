@@ -1,6 +1,6 @@
 import {
     getPresentGraph
-} from "../selectors"
+} from "../selectors/index"
 import {
     nodeSelected,
     selectedNodeIds

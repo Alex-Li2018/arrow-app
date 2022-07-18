@@ -101,7 +101,7 @@ export default class VisualGraph {
     draw(ctx, displayOptions) {
         ctx.save()
         const viewTransformation = displayOptions.viewTransformation
-        ctx.translate(viewTransformation.offset.dx, viewTransformation.offset.dy)
+        ctx.translate(viewTransformation.translateVector.dx, viewTransformation.translateVector.dy)
         ctx.scale(viewTransformation.scale)
         this.relationshipBundles.forEach(bundle => bundle.draw(ctx))
         Object.values(this.nodes).forEach(visualNode => {

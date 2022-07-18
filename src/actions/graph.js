@@ -21,7 +21,7 @@ import {
 import {
     getPresentGraph,
     getVisualGraph
-} from "../selectors";
+} from "../selectors/index";
 import {
     nodeSelected,
     selectedNodeIdMap,

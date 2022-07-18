@@ -7,7 +7,7 @@ import {
 } from "../model/Id"
 import {
     getVisualGraph
-} from "../selectors"
+} from "../selectors/index"
 import {
     selectedNodeIds
 } from "../model/selection";

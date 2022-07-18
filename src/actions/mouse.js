@@ -3,7 +3,7 @@ import {
     getPresentGraph,
     getTransformationHandles,
     getVisualGraph
-} from "../selectors/"
+} from "../selectors/index"
 import {
     activateEditing,
     clearSelection,
