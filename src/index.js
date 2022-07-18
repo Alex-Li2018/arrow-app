@@ -42,11 +42,10 @@ export default class ArrowApp {
         merge(this.options, options)
 
         this.initPointClass(graph)
-
+        // 适配二倍屏
         this.fitCanvasSize(this.canvas, this.options)
         const visualGraph = getVisualGraph(graph, this.selection, '')
         this.options.viewTransformation = calculateViewportTranslation(visualGraph, {width: this.options.width, height: this.options.height})
-        // console.log(res)
 
         this.renderVisuals({
             visualGraph,
@@ -101,7 +100,6 @@ export default class ArrowApp {
         visualGraph,
         displayOptions
     }) {
-        console.log(visualGraph, displayOptions)
         const ctx = this.canvas.getContext('2d');
         ctx.clearRect(0, 0, displayOptions.width, displayOptions.height);
     

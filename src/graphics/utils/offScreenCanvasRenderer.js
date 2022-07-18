@@ -1,6 +1,6 @@
 import {
     ViewTransformation
-} from "../../state/ViewTransformation";
+} from "../../model/ViewTransformation";
 import {
     getBackgroundImage,
     getVisualGraph

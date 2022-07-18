@@ -1,6 +1,6 @@
 import {
     Vector
-} from "../model/Vector";
+} from "./Vector";
 
 export class ViewTransformation {
     constructor(scale = 1, offset = new Vector(0, 0)) {

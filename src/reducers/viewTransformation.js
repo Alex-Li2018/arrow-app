@@ -1,6 +1,6 @@
 import {
     ViewTransformation
-} from "../state/ViewTransformation";
+} from "../model/ViewTransformation";
 
 const viewTransformation = (state = new ViewTransformation(), action) => {
     switch (action.type) {

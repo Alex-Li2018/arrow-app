@@ -10,9 +10,9 @@ import {
 import {
     NodeBackground
 } from "./NodeBackground";
-import {
-    PropertiesOutside
-} from "./PropertiesOutside";
+// import {
+//     PropertiesOutside
+// } from "./PropertiesOutside";
 import {
     neighbourPositions
 } from "../model/Graph";
@@ -20,9 +20,9 @@ import BoundingBox from "./utils/BoundingBox";
 import {
     NodeCaptionOutsideNode
 } from "./NodeCaptionOutsideNode";
-import {
-    NodePropertiesInside
-} from "./NodePropertiesInside";
+// import {
+//     NodePropertiesInside
+// } from "./NodePropertiesInside";
 import {
     bisect
 } from "./bisect";
@@ -99,6 +99,7 @@ export default class VisualNode {
                 this.outsideOrientation = orientationFromName(outsidePosition)
         }
 
+        // 是否有图片
         if (hasIcon) {
             switch (iconPosition) {
                 case 'inside':
@@ -146,18 +147,18 @@ export default class VisualNode {
             }
         }
 
-        if (hasProperties) {
-            switch (propertyPosition) {
-                case 'inside':
-                    this.insideComponents.push(this.properties = new NodePropertiesInside(
-                        node.properties, editing, style, measureTextContext))
-                    break
+        // if (hasProperties) {
+        //     switch (propertyPosition) {
+        //         case 'inside':
+        //             this.insideComponents.push(this.properties = new NodePropertiesInside(
+        //                 node.properties, editing, style, measureTextContext))
+        //             break
 
-                default:
-                    this.outsideComponents.push(this.properties = new PropertiesOutside(
-                        node.properties, this.outsideOrientation, editing, style, measureTextContext))
-            }
-        }
+        //         default:
+        //             this.outsideComponents.push(this.properties = new PropertiesOutside(
+        //                 node.properties, this.outsideOrientation, editing, style, measureTextContext))
+        //     }
+        // }
 
         if (this.internalScaleFactor === undefined) {
             this.internalVerticalOffset = -this.insideComponents.totalHeight() / 2
@@ -233,14 +234,14 @@ export default class VisualNode {
         ctx.save()
         ctx.scale(this.internalScaleFactor);
         ctx.translate(0, this.internalVerticalOffset);
-
+        // 节点内部的组件
         this.insideComponents.draw(ctx)
 
         ctx.restore()
 
         ctx.save()
         ctx.translate(...this.outsideOffset.dxdy)
-
+        // 节点外部的组件
         this.outsideComponents.draw(ctx)
 
         ctx.restore()
