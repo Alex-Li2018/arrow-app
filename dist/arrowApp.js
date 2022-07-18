@@ -516,8 +516,10 @@
         return styleAttribute.defaultValue
     };
 
+    // 获取图谱的样式
     const graphStyleSelector = graph => graph.style || {};
 
+    // 如果自身有style用自身的没有就用图谱的公用样式
     const specificOrGeneral = (styleKey, entity, graphStyle) => {
         if (entity.style && entity.style.hasOwnProperty(styleKey)) {
             return entity.style[styleKey]
@@ -1143,157 +1145,6 @@
         }
     }
 
-    class PropertiesBox {
-        constructor(properties, editing, style, textMeasurement) {
-            this.editing = editing;
-            this.font = {
-                fontWeight: style('property-font-weight'),
-                fontSize: style('property-font-size'),
-                fontFamily: style('font-family')
-            };
-            textMeasurement.font = this.font;
-            this.fontColor = style('property-color');
-            this.selectionColor = adaptForBackground(this.editing ? selectionHandle : selectionBorder, style);
-            this.lineHeight = this.font.fontSize * 1.2;
-            this.alignment = style('property-alignment');
-            this.properties = Object.keys(properties).map(key => ({
-                key,
-                value: properties[key]
-            }));
-            this.spaceWidth = textMeasurement.measureText(' ').width;
-            this.colonWidth = textMeasurement.measureText(':').width;
-            const maxWidth = (selector) => {
-                if (this.properties.length === 0) return 0
-                return Math.max(...this.properties.map(property => {
-                    return textMeasurement.measureText(selector(property)).width
-                }))
-            };
-
-            switch (this.editing ? 'colon' : this.alignment) {
-                case 'colon':
-                    this.keysWidth = maxWidth(property => property.key) + this.spaceWidth;
-                    this.valuesWidth = maxWidth(property => property.value) + this.spaceWidth;
-                    this.boxWidth = this.keysWidth + this.colonWidth + this.spaceWidth + this.valuesWidth;
-                    break
-
-                case 'center':
-                    this.boxWidth = maxWidth(property => property.key + ': ' + property.value);
-                    break
-            }
-            this.boxHeight = this.lineHeight * this.properties.length;
-        }
-
-        get isEmpty() {
-            return this.properties.length === 0
-        }
-
-        draw(ctx) {
-            ctx.save();
-
-            ctx.font = this.font;
-            ctx.fillStyle = this.fontColor;
-            ctx.textBaseline = 'middle';
-
-            this.properties.forEach((property, index) => {
-                const yPosition = (index + 0.5) * this.lineHeight;
-                if (this.editing) {
-                    drawTextLine(ctx, ':', new Point(this.keysWidth + this.colonWidth, yPosition), 'end');
-                } else {
-                    switch (this.alignment) {
-                        case 'colon':
-                            drawTextLine(ctx, property.key + ':', new Point(this.keysWidth + this.colonWidth, yPosition), 'end');
-                            drawTextLine(ctx, property.value, new Point(this.keysWidth + this.colonWidth + this.spaceWidth, yPosition), 'start');
-                            break
-
-                        case 'center':
-                            drawTextLine(ctx, property.key + ': ' + property.value, new Point(this.boxWidth / 2, yPosition), 'center');
-                            break
-                    }
-                }
-            });
-
-            ctx.restore();
-        }
-
-        drawBackground(ctx) {
-            const boundingBox = this.boundingBox();
-            ctx.fillStyle = 'white';
-            ctx.rect(boundingBox.left, boundingBox.top, boundingBox.width, boundingBox.height, 0, true, false);
-        }
-
-        drawSelectionIndicator(ctx) {
-            const indicatorWidth = 10;
-            const boundingBox = this.boundingBox();
-
-            ctx.save();
-
-            ctx.strokeStyle = this.selectionColor;
-            ctx.lineWidth = indicatorWidth;
-            ctx.lineJoin = 'round';
-            ctx.rect(boundingBox.left, boundingBox.top, boundingBox.width, boundingBox.height, 0, false, true);
-
-            ctx.restore();
-        }
-
-        boundingBox() {
-            return new BoundingBox(0, this.boxWidth, 0, this.boxHeight)
-        }
-    }
-
-    class PropertiesOutside {
-        constructor(properties, orientation, editing, style, textMeasurement) {
-            this.propertiesBox = new PropertiesBox(properties, editing, style, textMeasurement);
-            this.width = this.propertiesBox.boxWidth;
-            this.height = this.propertiesBox.boxHeight;
-            const horizontalPosition = (() => {
-                switch (orientation.horizontal) {
-                    case 'start':
-                        return 0
-                    case 'center':
-                        return -this.width / 2
-                    case 'end':
-                        return -this.width
-                }
-            })();
-            this.boxPosition = new Point(horizontalPosition, 0);
-        }
-
-        get type() {
-            return 'PROPERTIES'
-        }
-
-        get isEmpty() {
-            return this.propertiesBox.isEmpty
-        }
-
-        draw(ctx) {
-            if (!this.isEmpty) {
-                ctx.save();
-
-                ctx.translate(...this.boxPosition.xy);
-                this.propertiesBox.drawBackground(ctx);
-                this.propertiesBox.draw(ctx);
-
-                ctx.restore();
-            }
-        }
-
-        drawSelectionIndicator(ctx) {
-            ctx.save();
-            ctx.translate(...this.boxPosition.xy);
-            this.propertiesBox.drawSelectionIndicator(ctx);
-            ctx.restore();
-        }
-
-        boundingBox() {
-            return this.propertiesBox.boundingBox().translate(this.boxPosition.vectorFromOrigin())
-        }
-
-        distanceFrom(point) {
-            return this.boundingBox().contains(point) ? 0 : Infinity
-        }
-    }
-
     const otherNodeId = (relationship, nodeId) => {
         if (relationship.fromId === nodeId) {
             return relationship.toId
@@ -1391,42 +1242,6 @@
             const top = this.boxPosition.y;
 
             return new BoundingBox(left, left + this.width, top, top + this.height)
-        }
-
-        distanceFrom(point) {
-            return this.boundingBox().contains(point) ? 0 : Infinity
-        }
-    }
-
-    class NodePropertiesInside {
-        constructor(properties, editing, style, textMeasurement) {
-            this.propertiesBox = new PropertiesBox(properties, editing, style, textMeasurement);
-            this.width = this.propertiesBox.boxWidth;
-            this.height = this.propertiesBox.boxHeight;
-            this.boxPosition = new Point(-this.width / 2, 0);
-        }
-
-        get type() {
-            return 'PROPERTIES'
-        }
-
-        get isEmpty() {
-            return this.propertiesBox.isEmpty
-        }
-
-        draw(ctx) {
-            if (!this.isEmpty) {
-                ctx.save();
-
-                ctx.translate(...this.boxPosition.xy);
-                this.propertiesBox.draw(ctx);
-
-                ctx.restore();
-            }
-        }
-
-        boundingBox() {
-            return this.propertiesBox.boundingBox().translate(this.boxPosition.vectorFromOrigin())
         }
 
         distanceFrom(point) {
@@ -2052,6 +1867,7 @@
                     this.outsideOrientation = orientationFromName(outsidePosition);
             }
 
+            // 是否有图片
             if (hasIcon) {
                 switch (iconPosition) {
                     case 'inside':
@@ -2099,18 +1915,18 @@
                 }
             }
 
-            if (hasProperties) {
-                switch (propertyPosition) {
-                    case 'inside':
-                        this.insideComponents.push(this.properties = new NodePropertiesInside(
-                            node.properties, editing, style, measureTextContext));
-                        break
+            // if (hasProperties) {
+            //     switch (propertyPosition) {
+            //         case 'inside':
+            //             this.insideComponents.push(this.properties = new NodePropertiesInside(
+            //                 node.properties, editing, style, measureTextContext))
+            //             break
 
-                    default:
-                        this.outsideComponents.push(this.properties = new PropertiesOutside(
-                            node.properties, this.outsideOrientation, editing, style, measureTextContext));
-                }
-            }
+            //         default:
+            //             this.outsideComponents.push(this.properties = new PropertiesOutside(
+            //                 node.properties, this.outsideOrientation, editing, style, measureTextContext))
+            //     }
+            // }
 
             if (this.internalScaleFactor === undefined) {
                 this.internalVerticalOffset = -this.insideComponents.totalHeight() / 2;
@@ -2186,14 +2002,14 @@
             ctx.save();
             ctx.scale(this.internalScaleFactor);
             ctx.translate(0, this.internalVerticalOffset);
-
+            // 节点内部的组件
             this.insideComponents.draw(ctx);
 
             ctx.restore();
 
             ctx.save();
             ctx.translate(...this.outsideOffset.dxdy);
-
+            // 节点外部的组件
             this.outsideComponents.draw(ctx);
 
             ctx.restore();
@@ -2229,63 +2045,6 @@
         }
     }
 
-    const attachmentOptions = [{
-            name: 'top',
-            angle: -Math.PI / 2
-        },
-        {
-            name: 'right',
-            angle: 0
-        },
-        {
-            name: 'bottom',
-            angle: Math.PI / 2
-        },
-        {
-            name: 'left',
-            angle: Math.PI
-        }
-    ];
-
-    const relationshipArrowDimensions = (resolvedRelationship, graph, leftNode) => {
-        const style = styleKey => getStyleSelector(resolvedRelationship.relationship, styleKey, graph);
-        const startRadius = resolvedRelationship.from.radius + style('margin-start');
-        const endRadius = resolvedRelationship.to.radius + style('margin-end');
-        const arrowWidth = style('arrow-width');
-        const arrowColor = style('arrow-color');
-        const selectionColor = adaptForBackground(selectionBorder, style);
-
-        let hasArrowHead = false;
-        let headWidth = 0;
-        let headHeight = 0;
-        let chinHeight = 0;
-
-        const directionality = style('directionality');
-        if (directionality === 'directed') {
-            hasArrowHead = true;
-            headWidth = arrowWidth + 6 * Math.sqrt(arrowWidth);
-            headHeight = headWidth * 1.5;
-            chinHeight = headHeight / 10;
-        }
-
-        const separation = style('margin-peer');
-        const leftToRight = resolvedRelationship.from === leftNode;
-
-        return {
-            startRadius,
-            endRadius,
-            arrowWidth,
-            arrowColor,
-            selectionColor,
-            hasArrowHead,
-            headWidth,
-            headHeight,
-            chinHeight,
-            separation,
-            leftToRight
-        }
-    };
-
     class ResolvedRelationship {
         constructor(relationship, from, to, startAttachment, endAttachment, selected) {
             this.relationship = relationship;
@@ -2299,36 +2058,174 @@
         }
     }
 
-    // creates a polygon for an arrow head facing right, with its point at the origin.
-    function arrowHead(ctx, headHeight, chinHeight, headWidth, fill, stroke) {
-        ctx.polygon([{
-                x: chinHeight - headHeight,
-                y: 0
-            },
-            {
-                x: -headHeight,
-                y: headWidth / 2
-            },
-            {
-                x: 0,
-                y: 0
-            },
-            {
-                x: -headHeight,
-                y: -headWidth / 2
+    class VisualGraph {
+        constructor(graph, nodes, relationshipBundles) {
+            this.graph = graph;
+            this.nodes = nodes;
+            this.relationshipBundles = relationshipBundles;
+        }
+
+        get style() {
+            return this.graph.style
+        }
+
+        entityAtPoint(point) {
+            const node = this.nodeAtPoint(point);
+            if (node) return { ...node,
+                entityType: 'node'
             }
-        ], fill, stroke);
+
+            const nodeRing = this.nodeRingAtPoint(point);
+            if (nodeRing) return { ...nodeRing,
+                entityType: 'nodeRing'
+            }
+
+            const relationship = this.relationshipAtPoint(point);
+            if (relationship) return { ...relationship,
+                entityType: 'relationship'
+            }
+
+            return null
+        }
+
+        nodeAtPoint(point) {
+            return this.closestNode(point, (visualNode, distance) => {
+                return distance < visualNode.radius
+            })
+        }
+
+        nodeRingAtPoint(point) {
+            return this.closestNode(point, (visualNode, distance) => {
+                const nodeRadius = visualNode.radius;
+                return distance > nodeRadius && distance < nodeRadius + ringMargin
+            })
+        }
+
+        entitiesInBoundingBox(boundingBox) {
+            const nodes = this.graph.nodes.filter(node => boundingBox.contains(node.position))
+                .map(node => ({ ...node,
+                    entityType: 'node'
+                }));
+            const relationships = this.relationshipBundles.flatMap(bundle => bundle.routedRelationships)
+                .filter(routedRelationship => boundingBox.contains(routedRelationship.arrow.midPoint()))
+                .map(routedRelationship => routedRelationship.resolvedRelationship)
+                .map(relationship => ({ ...relationship,
+                    entityType: 'relationship'
+                }));
+
+            return [...nodes, ...relationships]
+        }
+
+        closestNode(point, hitTest) {
+            let closestDistance = Number.POSITIVE_INFINITY;
+            let closestNode = null;
+            this.graph.nodes.filter(node => node.status !== 'combined').forEach((node) => {
+                const visualNode = this.nodes[node.id];
+                const distance = visualNode.distanceFrom(point);
+                if (distance < closestDistance && hitTest(visualNode, distance)) {
+                    closestDistance = distance;
+                    closestNode = node;
+                }
+            });
+            return closestNode
+        }
+
+        relationshipAtPoint(point) {
+            return this.closestRelationship(point, (relationship, distance) => distance <= relationshipHitTolerance)
+        }
+
+        closestRelationship(point, hitTest) {
+            let minDistance = Number.POSITIVE_INFINITY;
+            let closestRelationship = null;
+            this.relationshipBundles.forEach(bundle => {
+                bundle.routedRelationships.forEach(routedRelationship => {
+                    const distance = routedRelationship.distanceFrom(point);
+                    if (distance < minDistance && hitTest(routedRelationship.resolvedRelationship, distance)) {
+                        minDistance = distance;
+                        closestRelationship = routedRelationship.resolvedRelationship;
+                    }
+                });
+            });
+
+            return closestRelationship
+        }
+
+        draw(ctx, displayOptions) {
+            ctx.save();
+            const viewTransformation = displayOptions.viewTransformation;
+            ctx.translate(viewTransformation.translateVector.dx, viewTransformation.translateVector.dy);
+            ctx.scale(viewTransformation.scale);
+            this.relationshipBundles.forEach(bundle => bundle.draw(ctx));
+            Object.values(this.nodes).forEach(visualNode => {
+                visualNode.draw(ctx);
+            });
+            ctx.restore();
+        }
+
+        boundingBox() {
+            const nodeBoxes = Object.values(this.nodes).map(node => node.boundingBox());
+            const relationshipBoxes = Object.values(this.relationshipBundles).map(bundle => bundle.boundingBox());
+            return combineBoundingBoxes([...nodeBoxes, ...relationshipBoxes])
+        }
     }
 
-    const perpendicular = (angle) => {
-        return normaliseAngle(angle + Math.PI / 2)
+    const nodeSelected = (selection, nodeId) => {
+        return selection.entities.some(entity =>
+            entity.entityType === 'node' && entity.id === nodeId
+        )
     };
 
-    const normaliseAngle = (angle) => {
-        let goodAngle = angle;
-        while (goodAngle < -Math.PI) goodAngle += 2 * Math.PI;
-        while (goodAngle > Math.PI) goodAngle -= 2 * Math.PI;
-        return goodAngle
+    const nodeEditing = (selection, nodeId) => {
+        return selection.editing &&
+            selection.editing.entityType === 'node' && selection.editing.id === nodeId
+    };
+
+    const relationshipSelected = (selection, relationshipId) => {
+        return selection.entities.some(entity =>
+            entity.entityType === 'relationship' && entity.id === relationshipId
+        )
+    };
+
+    const relationshipEditing = (selection, relationshipId) => {
+        return selection.editing &&
+            selection.editing.entityType === 'relationship' && selection.editing.id === relationshipId
+    };
+
+    class NodePair {
+        constructor(node1, node2, start, end) {
+            if (node1.id < node2.id) {
+                this.nodeA = node1;
+                this.attachA = start;
+                this.nodeB = node2;
+                this.attachB = end;
+            } else {
+                this.nodeA = node2;
+                this.attachA = end;
+                this.nodeB = node1;
+                this.attachB = start;
+            }
+        }
+
+        key() {
+            return `${this.nodeA.id}:${this.nodeB.id}:${attachKey(this.attachA)}:${attachKey(this.attachB)}`
+        }
+    }
+
+    const attachKey = (attach) => {
+        if (attach) {
+            return attach.attachment.name
+        }
+        return 'normal'
+    };
+
+    const bundle = (relationships) => {
+        const bundles = {};
+        relationships.forEach(r => {
+            const nodePair = new NodePair(r.from, r.to, r.startAttachment, r.endAttachment);
+            const bundle = bundles[nodePair.key()] || (bundles[nodePair.key()] = []);
+            bundle.push(r);
+        });
+        return Object.values(bundles)
     };
 
     const getDistanceToLine = (x1, y1, x2, y2, x3, y3) => {
@@ -2357,552 +2254,26 @@
         return Math.sqrt(dx * dx + dy * dy)
     };
 
-    class SeekAndDestroy {
-        constructor(start, startDirection, end, endDirection) {
-            this.waypoints = [];
-            this.start = start;
-            this.position = start;
-            this.startDirection = startDirection;
-            this.direction = startDirection;
-            this.end = end;
-            this.endDirection = endDirection;
-        }
-
-        forwardToWaypoint(distance, turn, radius) {
-            this.position = this.position.translate(new Vector(distance, 0).rotate(this.direction));
-            this.direction = normaliseAngle(this.direction + turn);
-            this.waypoints.push({
-                point: this.position,
-                distance,
-                turn,
-                radius
-            });
-        }
-
-        get endRelative() {
-            return this.end.translate(this.position.vectorFromOrigin().invert()).rotate(-this.direction)
-        }
-
-        get endDirectionRelative() {
-            return normaliseAngle(this.endDirection - this.direction)
-        }
-
-        get rightAngleTowardsEnd() {
-            return this.endRelative.y < 0 ? -Math.PI / 2 : Math.PI / 2
-        }
-
-        segment(i) {
-            const from = i === 0 ? this.start : this.waypoints[i - 1].point;
-            const to = i < this.waypoints.length ? this.waypoints[i].point : this.end;
-            return {
-                from,
-                to
+    // creates a polygon for an arrow head facing right, with its point at the origin.
+    function arrowHead(ctx, headHeight, chinHeight, headWidth, fill, stroke) {
+        ctx.polygon([{
+                x: chinHeight - headHeight,
+                y: 0
+            },
+            {
+                x: -headHeight,
+                y: headWidth / 2
+            },
+            {
+                x: 0,
+                y: 0
+            },
+            {
+                x: -headHeight,
+                y: -headWidth / 2
             }
-        }
-
-        nextPoint(i) {
-            if (i + 1 < this.waypoints.length) {
-                const waypoint = this.waypoints[i];
-                const nextWaypoint = this.waypoints[i + 1].point;
-                const nextVector = nextWaypoint.vectorFrom(waypoint.point);
-                return waypoint.point.translate(nextVector.scale(0.5))
-            }
-            return this.end
-        }
-
-        get polarity() {
-            if (this.waypoints.length === 0) {
-                return 0
-            }
-            return Math.sign(this.waypoints[0].turn)
-        }
-
-        changeEnd(newEnd) {
-            const path = new SeekAndDestroy(this.start, this.startDirection, newEnd, this.endDirection);
-            path.waypoints = this.waypoints;
-            return path
-        }
-
-        inverse() {
-            const path = new SeekAndDestroy(
-                this.end,
-                normaliseAngle(this.endDirection + Math.PI),
-                this.start,
-                normaliseAngle(this.startDirection + Math.PI)
-            );
-            for (let i = this.waypoints.length - 1; i >= 0; i--) {
-                const waypoint = this.waypoints[i];
-                path.forwardToWaypoint(
-                    waypoint.point.vectorFrom(path.position).distance(), -waypoint.turn,
-                    waypoint.radius
-                );
-            }
-            return path
-        }
-
-        draw(ctx) {
-            ctx.moveTo(...this.start.xy);
-            let previous = this.start;
-            for (let i = 0; i < this.waypoints.length; i++) {
-                const waypoint = this.waypoints[i];
-                const next = this.nextPoint(i);
-                let control = waypoint.point;
-                const vector1 = previous.vectorFrom(control);
-                const vector2 = next.vectorFrom(control);
-                const d = waypoint.radius * Math.tan(Math.abs(waypoint.turn) / 2);
-                if (vector1.distance() < d) {
-                    const overlap = d - vector1.distance();
-                    control = control.translate(vector2.scale(overlap / vector2.distance()));
-                }
-                if (vector2.distance() < d) {
-                    const overlap = d - vector2.distance();
-                    control = control.translate(vector1.scale(overlap / vector1.distance()));
-                }
-
-                ctx.arcTo(...control.xy, ...next.xy, waypoint.radius);
-                previous = next;
-            }
-            ctx.lineTo(...this.end.xy);
-        }
-
-        distanceFrom(point) {
-            let minDistance = Infinity;
-            for (let i = 0; i < this.waypoints.length + 1; i++) {
-                const segment = this.segment(i);
-                const distance = getDistanceToLine(...segment.from.xy, ...segment.to.xy, ...point.xy);
-                minDistance = Math.min(distance, minDistance);
-            }
-            return minDistance
-        }
+        ], fill, stroke);
     }
-
-    const compareWaypoints = (a, b) => {
-        if (a.length === 0 && b.length === 0) return 0
-
-        if (a.length === 0) {
-            return -Math.sign(b[0].turn)
-        }
-
-        if (b.length === 0) {
-            return Math.sign(a[0].turn)
-        }
-
-        const aFirstWaypoint = a[0];
-        const bFirstWaypoint = b[0];
-
-        if (aFirstWaypoint.turn !== bFirstWaypoint.turn) {
-            return Math.sign(aFirstWaypoint.turn - bFirstWaypoint.turn)
-        }
-
-        if (Math.abs(aFirstWaypoint.distance - bFirstWaypoint.distance) > 0.0001) {
-            return Math.sin(a[0].turn) * Math.sign(bFirstWaypoint.distance - aFirstWaypoint.distance)
-        }
-
-        return compareWaypoints(a.slice(1), b.slice(1))
-    };
-
-    class RectilinearArrow {
-        constructor(startCentre, endCentre, startRadius, endRadius, startAttachment, endAttachment, dimensions) {
-            this.dimensions = dimensions;
-            const arcRadius = startAttachment.total > endAttachment.total ? computeArcRadius(startAttachment) : computeArcRadius(endAttachment);
-            const startAttachAngle = startAttachment.attachment.angle;
-            const endAttachAngle = endAttachment.attachment.angle;
-            const startOffset = (startAttachment.ordinal - (startAttachment.total - 1) / 2) * 10;
-            const endOffset = (endAttachment.ordinal - (endAttachment.total - 1) / 2) * 10;
-            const endShaftRadius = endRadius + this.dimensions.headHeight - this.dimensions.chinHeight;
-            const startAttach = startCentre.translate(new Vector(startRadius, startOffset).rotate(startAttachAngle));
-            const endAttach = endCentre.translate(new Vector(endRadius, endOffset).rotate(endAttachAngle));
-            this.endShaft = endCentre.translate(new Vector(endShaftRadius, endOffset).rotate(endAttachAngle));
-            const startNormalDistance = arcRadius + startAttachment.minNormalDistance;
-            const endNormalDistance = arcRadius + endAttachment.minNormalDistance - (this.dimensions.headHeight - this.dimensions.chinHeight);
-
-            const fanOut = startAttachment.total > endAttachment.total;
-
-            this.shaft = new SeekAndDestroy(startAttach, startAttachAngle, this.endShaft, normaliseAngle(endAttachAngle + Math.PI));
-            let longestSegmentIndex;
-
-            const initialAngle = Math.abs(Math.round(this.shaft.endDirectionRelative * 180 / Math.PI));
-            switch (initialAngle) {
-                case 0:
-                    if (this.shaft.endRelative.x > 0) {
-                        if (this.shaft.endRelative.y === 0) {
-                            longestSegmentIndex = 0;
-                        } else {
-                            const distance = this.shaft.endRelative.x < arcRadius * 2 ? this.shaft.endRelative.x / 2 :
-                                (fanOut ? startNormalDistance : this.shaft.endRelative.x - endNormalDistance);
-                            this.shaft.forwardToWaypoint(distance, this.shaft.rightAngleTowardsEnd, arcRadius);
-                            this.shaft.forwardToWaypoint(this.shaft.endRelative.x, this.shaft.rightAngleTowardsEnd, arcRadius);
-
-                            longestSegmentIndex = fanOut ? 2 : 0;
-                        }
-                    } else {
-                        this.shaft.forwardToWaypoint(startNormalDistance, this.shaft.rightAngleTowardsEnd, arcRadius);
-                        const distance = Math.max(startNormalDistance + startRadius, this.shaft.endRelative.x + endRadius + arcRadius);
-                        this.shaft.forwardToWaypoint(distance, this.shaft.rightAngleTowardsEnd, arcRadius);
-                        this.shaft.forwardToWaypoint(this.shaft.endRelative.x + endNormalDistance, this.shaft.rightAngleTowardsEnd, arcRadius);
-                        this.shaft.forwardToWaypoint(this.shaft.endRelative.x, this.shaft.rightAngleTowardsEnd, arcRadius);
-
-                        longestSegmentIndex = 2;
-                    }
-                    break
-
-                case 90:
-                    if (this.shaft.endRelative.x > 0) {
-                        if (this.shaft.endDirectionRelative * this.shaft.endRelative.y < 0) {
-                            this.shaft.forwardToWaypoint(this.shaft.endRelative.x - endRadius - arcRadius, this.shaft.rightAngleTowardsEnd, arcRadius);
-                            this.shaft.forwardToWaypoint(this.shaft.endRelative.x + arcRadius, this.shaft.rightAngleTowardsEnd, arcRadius);
-                        }
-                        this.shaft.forwardToWaypoint(this.shaft.endRelative.x, this.shaft.rightAngleTowardsEnd, arcRadius);
-                        longestSegmentIndex = 0;
-                    } else {
-                        longestSegmentIndex = Math.abs(this.shaft.endRelative.x) > Math.abs(this.shaft.endRelative.y) ? 1 : 2;
-
-                        this.shaft.forwardToWaypoint(Math.max(startNormalDistance, arcRadius * 2 + this.shaft.endRelative.x), this.shaft.rightAngleTowardsEnd, arcRadius);
-                        this.shaft.forwardToWaypoint(Math.max(this.shaft.endRelative.x + arcRadius, arcRadius * 2), this.shaft.rightAngleTowardsEnd, arcRadius);
-                        this.shaft.forwardToWaypoint(this.shaft.endRelative.x, this.shaft.rightAngleTowardsEnd, arcRadius);
-                    }
-                    break
-
-                default:
-                    if (Math.abs(this.shaft.endRelative.y) > arcRadius * 2) {
-                        const distance = Math.max(arcRadius, this.shaft.endRelative.x + arcRadius);
-                        this.shaft.forwardToWaypoint(distance, this.shaft.rightAngleTowardsEnd, arcRadius);
-                        this.shaft.forwardToWaypoint(this.shaft.endRelative.x, this.shaft.rightAngleTowardsEnd, arcRadius);
-
-                        longestSegmentIndex = 1;
-                    } else {
-                        this.shaft.forwardToWaypoint(arcRadius, this.shaft.rightAngleTowardsEnd, arcRadius);
-                        this.shaft.forwardToWaypoint(arcRadius + startRadius, this.shaft.rightAngleTowardsEnd, arcRadius);
-                        this.shaft.forwardToWaypoint(this.shaft.endRelative.x - arcRadius, this.shaft.rightAngleTowardsEnd, arcRadius);
-                        this.shaft.forwardToWaypoint(this.shaft.endRelative.x, this.shaft.rightAngleTowardsEnd, arcRadius);
-
-                        longestSegmentIndex = 3;
-                    }
-            }
-
-            this.path = this.shaft.changeEnd(endAttach);
-
-            const longestSegment = this.shaft.segment(longestSegmentIndex);
-            this.midShaft = longestSegment.from.translate(longestSegment.to.vectorFrom(longestSegment.from).scale(0.5));
-            this.midShaftAngle = longestSegment.from.vectorFrom(longestSegment.to).angle();
-        }
-
-        distanceFrom(point) {
-            return this.path.distanceFrom(point)
-        }
-
-        draw(ctx) {
-            ctx.save();
-            ctx.beginPath();
-            this.shaft.draw(ctx);
-            ctx.lineWidth = this.dimensions.arrowWidth;
-            ctx.strokeStyle = this.dimensions.arrowColor;
-            ctx.stroke();
-            if (this.dimensions.hasArrowHead) {
-                ctx.translate(...this.endShaft.xy);
-                ctx.rotate(this.shaft.endDirection);
-                ctx.translate(this.dimensions.headHeight - this.dimensions.chinHeight, 0);
-                ctx.fillStyle = this.dimensions.arrowColor;
-                arrowHead(ctx, this.dimensions.headHeight, this.dimensions.chinHeight, this.dimensions.headWidth, true, false);
-                ctx.fill();
-            }
-            ctx.restore();
-        }
-
-        drawSelectionIndicator(ctx) {
-            const indicatorWidth = 10;
-            ctx.save();
-            ctx.beginPath();
-            this.shaft.draw(ctx);
-            ctx.lineWidth = this.dimensions.arrowWidth + indicatorWidth;
-            ctx.lineCap = 'round';
-            ctx.strokeStyle = this.dimensions.selectionColor;
-            ctx.stroke();
-            if (this.dimensions.hasArrowHead) {
-                ctx.translate(...this.endShaft.xy);
-                ctx.rotate(this.shaft.endDirection);
-                ctx.translate(this.dimensions.headHeight - this.dimensions.chinHeight, 0);
-                ctx.lineWidth = indicatorWidth;
-                ctx.lineJoin = 'round';
-                arrowHead(ctx, this.dimensions.headHeight, this.dimensions.chinHeight, this.dimensions.headWidth, false, true);
-                ctx.stroke();
-            }
-            ctx.restore();
-        }
-
-        midPoint() {
-            return this.midShaft
-        }
-
-        shaftAngle() {
-            return this.midShaftAngle
-        }
-
-        get arrowKind() {
-            return 'straight'
-        }
-    }
-
-    const computeArcRadius = (attachment) => {
-        return 40 + attachment.radiusOrdinal * 10
-    };
-
-    class ElbowArrow {
-        constructor(startCentre, endCentre, startRadius, endRadius, startAttachment, endAttachment, dimensions) {
-            this.dimensions = dimensions;
-            const fixedEnd = (startAttachment && startAttachment.attachment.name !== 'normal') ? 'start' : 'end';
-            const fixedAttachment = fixedEnd === 'start' ? startAttachment : endAttachment;
-            const arcRadius = 40 + fixedAttachment.radiusOrdinal * 10;
-            const fixedCentre = fixedEnd === 'start' ? startCentre : endCentre;
-            const normalCentre = fixedEnd === 'end' ? startCentre : endCentre;
-            const fixedRadius = fixedEnd === 'start' ? startRadius : endRadius + dimensions.headHeight - dimensions.chinHeight;
-            const fixedDivergeRadius = fixedEnd === 'start' ? startRadius + startAttachment.minNormalDistance : endRadius + Math.max(endAttachment.minNormalDistance, dimensions.headHeight - dimensions.chinHeight);
-            const normalRadius = fixedEnd === 'end' ? startRadius : endRadius + dimensions.headHeight - dimensions.chinHeight;
-            const fixedAttachAngle = fixedAttachment.attachment.angle;
-            const offset = (fixedAttachment.ordinal - (fixedAttachment.total - 1) / 2) * 10;
-            const fixedAttach = fixedCentre.translate(new Vector(fixedRadius, offset).rotate(fixedAttachAngle));
-            const fixedDiverge = fixedCentre.translate(new Vector(fixedDivergeRadius, offset).rotate(fixedAttachAngle));
-            const normalCentreRelative = normalCentre.translate(fixedDiverge.vectorFromOrigin().invert()).rotate(-fixedAttachAngle);
-            const arcCentre = new Point(0, normalCentreRelative.y < 0 ? -arcRadius : arcRadius);
-            const arcCentreVector = normalCentreRelative.vectorFrom(arcCentre);
-            const gamma = Math.asin(arcRadius / arcCentreVector.distance());
-            const theta = gamma + Math.abs(arcCentreVector.angle());
-            const d = arcRadius * Math.tan(theta / 2);
-            const control = fixedAttach.translate(new Vector(d, 0).rotate(fixedAttachAngle));
-            const normalAttachAngle = control.vectorFrom(normalCentre).angle();
-            const normalAttach = normalCentre.translate(new Vector(normalRadius, 0).rotate(normalAttachAngle));
-
-            const path = new SeekAndDestroy(fixedAttach, fixedAttachAngle, normalAttach, normaliseAngle(normalAttachAngle + Math.PI));
-            path.forwardToWaypoint(d + fixedDivergeRadius - fixedRadius, Math.sign(path.endDirectionRelative) * theta, arcRadius);
-
-            const longestSegment = path.segment(1);
-            this.midShaft = longestSegment.from.translate(longestSegment.to.vectorFrom(longestSegment.from).scale(0.5));
-            this.midShaftAngle = longestSegment.from.vectorFrom(longestSegment.to).angle();
-            if (fixedEnd === 'start') {
-                this.midShaftAngle = normaliseAngle(this.midShaftAngle + Math.PI);
-            }
-
-            this.path = fixedEnd === 'start' ? path : path.inverse();
-        }
-
-        distanceFrom(point) {
-            return this.path.distanceFrom(point)
-        }
-
-        draw(ctx) {
-            ctx.save();
-            ctx.beginPath();
-            this.path.draw(ctx);
-            ctx.lineWidth = this.dimensions.arrowWidth;
-            ctx.strokeStyle = this.dimensions.arrowColor;
-            ctx.stroke();
-            if (this.dimensions.hasArrowHead) {
-                ctx.translate(...this.path.end.xy);
-                ctx.rotate(this.path.endDirection);
-                ctx.translate(this.dimensions.headHeight - this.dimensions.chinHeight, 0);
-                ctx.fillStyle = this.dimensions.arrowColor;
-                arrowHead(ctx, this.dimensions.headHeight, this.dimensions.chinHeight, this.dimensions.headWidth, true, false);
-                ctx.fill();
-            }
-            ctx.restore();
-        }
-
-        drawSelectionIndicator(ctx) {
-            const indicatorWidth = 10;
-            ctx.save();
-            ctx.beginPath();
-            this.path.draw(ctx);
-            ctx.lineWidth = this.dimensions.arrowWidth + indicatorWidth;
-            ctx.lineCap = 'round';
-            ctx.strokeStyle = this.dimensions.selectionColor;
-            ctx.stroke();
-            if (this.dimensions.hasArrowHead) {
-                ctx.translate(...this.path.end.xy);
-                ctx.rotate(this.path.endDirection);
-                ctx.translate(this.dimensions.headHeight - this.dimensions.chinHeight, 0);
-                ctx.lineWidth = indicatorWidth;
-                ctx.lineJoin = 'round';
-                arrowHead(ctx, this.dimensions.headHeight, this.dimensions.chinHeight, this.dimensions.headWidth, false, true);
-                ctx.stroke();
-            }
-            ctx.restore();
-        }
-
-        midPoint() {
-            return this.midShaft
-        }
-
-        shaftAngle() {
-            return this.midShaftAngle
-        }
-
-        get arrowKind() {
-            return 'straight'
-        }
-    }
-
-    const computeRelationshipAttachments = (graph, visualNodes) => {
-        const nodeAttachments = {};
-        const countAttachment = (nodeId, attachmentOptionName) => {
-            const nodeCounters = nodeAttachments[nodeId] || (nodeAttachments[nodeId] = {});
-            nodeCounters[attachmentOptionName] = (nodeCounters[attachmentOptionName] || 0) + 1;
-        };
-
-        graph.relationships.forEach(relationship => {
-            const style = styleAttribute => getStyleSelector(relationship, styleAttribute, graph);
-            countAttachment(relationship.fromId, style('attachment-start'));
-            countAttachment(relationship.toId, style('attachment-end'));
-        });
-
-        const centralAttachment = (nodeId, attachmentOptionName) => {
-            const total = nodeAttachments[nodeId][attachmentOptionName];
-            return {
-                attachment: findOption(attachmentOptionName),
-                ordinal: (total - 1) / 2,
-                radiusOrdinal: 0,
-                minNormalDistance: 0,
-                total
-            }
-        };
-
-        const routedRelationships = graph.relationships.map(relationship => {
-            const style = styleAttribute => getStyleSelector(relationship, styleAttribute, graph);
-            const startAttachment = centralAttachment(relationship.fromId, style('attachment-start'));
-            const endAttachment = centralAttachment(relationship.toId, style('attachment-end'));
-
-            const resolvedRelationship = new ResolvedRelationship(
-                relationship,
-                visualNodes[relationship.fromId],
-                visualNodes[relationship.toId],
-                startAttachment,
-                endAttachment,
-                false,
-                graph
-            );
-
-            let arrow;
-            
-            if (startAttachment.attachment.name !== 'normal' || endAttachment.attachment.name !== 'normal') {
-                if (startAttachment.attachment.name !== 'normal' && endAttachment.attachment.name !== 'normal') {
-                    const dimensions = relationshipArrowDimensions(resolvedRelationship, graph, resolvedRelationship.from);
-                    arrow = new RectilinearArrow(
-                        resolvedRelationship.from.position,
-                        resolvedRelationship.to.position,
-                        dimensions.startRadius,
-                        dimensions.endRadius,
-                        resolvedRelationship.startAttachment,
-                        resolvedRelationship.endAttachment,
-                        dimensions
-                    );
-                } else {
-                    const dimensions = relationshipArrowDimensions(resolvedRelationship, graph, resolvedRelationship.from);
-                    arrow = new ElbowArrow(
-                        resolvedRelationship.from.position,
-                        resolvedRelationship.to.position,
-                        dimensions.startRadius,
-                        dimensions.endRadius,
-                        resolvedRelationship.startAttachment,
-                        resolvedRelationship.endAttachment,
-                        dimensions
-                    );
-                }
-            }
-            return {
-                resolvedRelationship,
-                arrow
-            }
-        });
-
-        const relationshipAttachments = {
-            start: {},
-            end: {}
-        };
-        graph.nodes.forEach(node => {
-            const relationships = routedRelationships
-                .filter(routedRelationship =>
-                    node.id === routedRelationship.resolvedRelationship.from.id ||
-                    node.id === routedRelationship.resolvedRelationship.to.id);
-
-            attachmentOptions.forEach(option => {
-                const relevantRelationships = relationships.filter(routedRelationship => {
-                    const startAttachment = routedRelationship.resolvedRelationship.startAttachment;
-                    const endAttachment = routedRelationship.resolvedRelationship.endAttachment;
-                    return (startAttachment.attachment === option && node.id === routedRelationship.resolvedRelationship.from.id) ||
-                        (endAttachment.attachment === option && node.id === routedRelationship.resolvedRelationship.to.id)
-                });
-
-                const neighbours = relevantRelationships.map(routedRelationship => {
-                    const direction = (
-                        routedRelationship.resolvedRelationship.from.id === node.id &&
-                        routedRelationship.resolvedRelationship.startAttachment.attachment === option
-                    ) ? 'start' : 'end';
-                    let path, headSpace = 0;
-                    if (routedRelationship.arrow) {
-                        if (direction === 'end') {
-                            const dimensions = routedRelationship.arrow.dimensions;
-                            headSpace = dimensions.headHeight - dimensions.chinHeight;
-                        }
-                        if (routedRelationship.arrow.path && routedRelationship.arrow.path.waypoints) {
-                            if (direction === 'start') {
-                                path = routedRelationship.arrow.path;
-                            } else {
-                                path = routedRelationship.arrow.path.inverse();
-                            }
-                        }
-                    }
-
-                    return {
-                        relationship: routedRelationship.resolvedRelationship.relationship,
-                        direction,
-                        path,
-                        headSpace
-                    }
-                });
-
-                const maxHeadSpace = Math.max(...neighbours.map(neighbour => neighbour.headSpace));
-
-                neighbours.sort((a, b) => {
-                    return (a.path && b.path) ? compareWaypoints(a.path.waypoints, b.path.waypoints) : 0
-                });
-                
-                neighbours.forEach((neighbour, i) => {
-                    relationshipAttachments[neighbour.direction][neighbour.relationship.id] = {
-                        attachment: option,
-                        ordinal: i,
-                        radiusOrdinal: computeRadiusOrdinal(neighbour.path, i, neighbours.length),
-                        minNormalDistance: maxHeadSpace,
-                        total: neighbours.length
-                    };
-                });
-            });
-        });
-
-        return relationshipAttachments
-    };
-
-    const findOption = (optionName) => {
-        return attachmentOptions.find(option => option.name === optionName) || {
-            name: 'normal'
-        }
-    };
-
-    const computeRadiusOrdinal = (path, ordinal, total) => {
-        if (path) {
-            const polarity = path.polarity;
-
-            switch (polarity) {
-                case -1:
-                    return ordinal
-
-                case 1:
-                    return total - ordinal - 1
-
-                default:
-                    return Math.max(ordinal, total - ordinal - 1)
-            }
-        }
-        return 0
-    };
 
     class ParallelArrow {
         constructor(startCentre, endCentre, startRadius, endRadius, startDeflection, endDeflection, displacement, arcRadius, dimensions) {
@@ -3004,6 +2375,17 @@
             return 'straight'
         }
     }
+
+    const perpendicular = (angle) => {
+        return normaliseAngle(angle + Math.PI / 2)
+    };
+
+    const normaliseAngle = (angle) => {
+        let goodAngle = angle;
+        while (goodAngle < -Math.PI) goodAngle += 2 * Math.PI;
+        while (goodAngle > Math.PI) goodAngle -= 2 * Math.PI;
+        return goodAngle
+    };
 
     class StraightArrow {
         constructor(startCentre, endCentre, startAttach, endAttach, dimensions) {
@@ -3181,6 +2563,157 @@
             const top = this.boxPosition.y;
 
             return new BoundingBox(left, left + this.width, top, top + this.height)
+        }
+
+        distanceFrom(point) {
+            return this.boundingBox().contains(point) ? 0 : Infinity
+        }
+    }
+
+    class PropertiesBox {
+        constructor(properties, editing, style, textMeasurement) {
+            this.editing = editing;
+            this.font = {
+                fontWeight: style('property-font-weight'),
+                fontSize: style('property-font-size'),
+                fontFamily: style('font-family')
+            };
+            textMeasurement.font = this.font;
+            this.fontColor = style('property-color');
+            this.selectionColor = adaptForBackground(this.editing ? selectionHandle : selectionBorder, style);
+            this.lineHeight = this.font.fontSize * 1.2;
+            this.alignment = style('property-alignment');
+            this.properties = Object.keys(properties).map(key => ({
+                key,
+                value: properties[key]
+            }));
+            this.spaceWidth = textMeasurement.measureText(' ').width;
+            this.colonWidth = textMeasurement.measureText(':').width;
+            const maxWidth = (selector) => {
+                if (this.properties.length === 0) return 0
+                return Math.max(...this.properties.map(property => {
+                    return textMeasurement.measureText(selector(property)).width
+                }))
+            };
+
+            switch (this.editing ? 'colon' : this.alignment) {
+                case 'colon':
+                    this.keysWidth = maxWidth(property => property.key) + this.spaceWidth;
+                    this.valuesWidth = maxWidth(property => property.value) + this.spaceWidth;
+                    this.boxWidth = this.keysWidth + this.colonWidth + this.spaceWidth + this.valuesWidth;
+                    break
+
+                case 'center':
+                    this.boxWidth = maxWidth(property => property.key + ': ' + property.value);
+                    break
+            }
+            this.boxHeight = this.lineHeight * this.properties.length;
+        }
+
+        get isEmpty() {
+            return this.properties.length === 0
+        }
+
+        draw(ctx) {
+            ctx.save();
+
+            ctx.font = this.font;
+            ctx.fillStyle = this.fontColor;
+            ctx.textBaseline = 'middle';
+
+            this.properties.forEach((property, index) => {
+                const yPosition = (index + 0.5) * this.lineHeight;
+                if (this.editing) {
+                    drawTextLine(ctx, ':', new Point(this.keysWidth + this.colonWidth, yPosition), 'end');
+                } else {
+                    switch (this.alignment) {
+                        case 'colon':
+                            drawTextLine(ctx, property.key + ':', new Point(this.keysWidth + this.colonWidth, yPosition), 'end');
+                            drawTextLine(ctx, property.value, new Point(this.keysWidth + this.colonWidth + this.spaceWidth, yPosition), 'start');
+                            break
+
+                        case 'center':
+                            drawTextLine(ctx, property.key + ': ' + property.value, new Point(this.boxWidth / 2, yPosition), 'center');
+                            break
+                    }
+                }
+            });
+
+            ctx.restore();
+        }
+
+        drawBackground(ctx) {
+            const boundingBox = this.boundingBox();
+            ctx.fillStyle = 'white';
+            ctx.rect(boundingBox.left, boundingBox.top, boundingBox.width, boundingBox.height, 0, true, false);
+        }
+
+        drawSelectionIndicator(ctx) {
+            const indicatorWidth = 10;
+            const boundingBox = this.boundingBox();
+
+            ctx.save();
+
+            ctx.strokeStyle = this.selectionColor;
+            ctx.lineWidth = indicatorWidth;
+            ctx.lineJoin = 'round';
+            ctx.rect(boundingBox.left, boundingBox.top, boundingBox.width, boundingBox.height, 0, false, true);
+
+            ctx.restore();
+        }
+
+        boundingBox() {
+            return new BoundingBox(0, this.boxWidth, 0, this.boxHeight)
+        }
+    }
+
+    class PropertiesOutside {
+        constructor(properties, orientation, editing, style, textMeasurement) {
+            this.propertiesBox = new PropertiesBox(properties, editing, style, textMeasurement);
+            this.width = this.propertiesBox.boxWidth;
+            this.height = this.propertiesBox.boxHeight;
+            const horizontalPosition = (() => {
+                switch (orientation.horizontal) {
+                    case 'start':
+                        return 0
+                    case 'center':
+                        return -this.width / 2
+                    case 'end':
+                        return -this.width
+                }
+            })();
+            this.boxPosition = new Point(horizontalPosition, 0);
+        }
+
+        get type() {
+            return 'PROPERTIES'
+        }
+
+        get isEmpty() {
+            return this.propertiesBox.isEmpty
+        }
+
+        draw(ctx) {
+            if (!this.isEmpty) {
+                ctx.save();
+
+                ctx.translate(...this.boxPosition.xy);
+                this.propertiesBox.drawBackground(ctx);
+                this.propertiesBox.draw(ctx);
+
+                ctx.restore();
+            }
+        }
+
+        drawSelectionIndicator(ctx) {
+            ctx.save();
+            ctx.translate(...this.boxPosition.xy);
+            this.propertiesBox.drawSelectionIndicator(ctx);
+            ctx.restore();
+        }
+
+        boundingBox() {
+            return this.propertiesBox.boundingBox().translate(this.boxPosition.vectorFromOrigin())
         }
 
         distanceFrom(point) {
@@ -3413,28 +2946,6 @@
         return new Vector(horizontalPosition, -height / 2)
     };
 
-    const nodeSelected = (selection, nodeId) => {
-        return selection.entities.some(entity =>
-            entity.entityType === 'node' && entity.id === nodeId
-        )
-    };
-
-    const nodeEditing = (selection, nodeId) => {
-        return selection.editing &&
-            selection.editing.entityType === 'node' && selection.editing.id === nodeId
-    };
-
-    const relationshipSelected = (selection, relationshipId) => {
-        return selection.entities.some(entity =>
-            entity.entityType === 'relationship' && entity.id === relationshipId
-        )
-    };
-
-    const relationshipEditing = (selection, relationshipId) => {
-        return selection.editing &&
-            selection.editing.entityType === 'relationship' && selection.editing.id === relationshipId
-    };
-
     class BalloonArrow {
         constructor(nodeCentre, nodeRadius, angle, separation, length, arcRadius, dimensions) {
             this.nodeCentre = nodeCentre;
@@ -3544,6 +3055,429 @@
         return {
             gap,
             start
+        }
+    };
+
+    class SeekAndDestroy {
+        constructor(start, startDirection, end, endDirection) {
+            this.waypoints = [];
+            this.start = start;
+            this.position = start;
+            this.startDirection = startDirection;
+            this.direction = startDirection;
+            this.end = end;
+            this.endDirection = endDirection;
+        }
+
+        forwardToWaypoint(distance, turn, radius) {
+            this.position = this.position.translate(new Vector(distance, 0).rotate(this.direction));
+            this.direction = normaliseAngle(this.direction + turn);
+            this.waypoints.push({
+                point: this.position,
+                distance,
+                turn,
+                radius
+            });
+        }
+
+        get endRelative() {
+            return this.end.translate(this.position.vectorFromOrigin().invert()).rotate(-this.direction)
+        }
+
+        get endDirectionRelative() {
+            return normaliseAngle(this.endDirection - this.direction)
+        }
+
+        get rightAngleTowardsEnd() {
+            return this.endRelative.y < 0 ? -Math.PI / 2 : Math.PI / 2
+        }
+
+        segment(i) {
+            const from = i === 0 ? this.start : this.waypoints[i - 1].point;
+            const to = i < this.waypoints.length ? this.waypoints[i].point : this.end;
+            return {
+                from,
+                to
+            }
+        }
+
+        nextPoint(i) {
+            if (i + 1 < this.waypoints.length) {
+                const waypoint = this.waypoints[i];
+                const nextWaypoint = this.waypoints[i + 1].point;
+                const nextVector = nextWaypoint.vectorFrom(waypoint.point);
+                return waypoint.point.translate(nextVector.scale(0.5))
+            }
+            return this.end
+        }
+
+        get polarity() {
+            if (this.waypoints.length === 0) {
+                return 0
+            }
+            return Math.sign(this.waypoints[0].turn)
+        }
+
+        changeEnd(newEnd) {
+            const path = new SeekAndDestroy(this.start, this.startDirection, newEnd, this.endDirection);
+            path.waypoints = this.waypoints;
+            return path
+        }
+
+        inverse() {
+            const path = new SeekAndDestroy(
+                this.end,
+                normaliseAngle(this.endDirection + Math.PI),
+                this.start,
+                normaliseAngle(this.startDirection + Math.PI)
+            );
+            for (let i = this.waypoints.length - 1; i >= 0; i--) {
+                const waypoint = this.waypoints[i];
+                path.forwardToWaypoint(
+                    waypoint.point.vectorFrom(path.position).distance(), -waypoint.turn,
+                    waypoint.radius
+                );
+            }
+            return path
+        }
+
+        draw(ctx) {
+            ctx.moveTo(...this.start.xy);
+            let previous = this.start;
+            for (let i = 0; i < this.waypoints.length; i++) {
+                const waypoint = this.waypoints[i];
+                const next = this.nextPoint(i);
+                let control = waypoint.point;
+                const vector1 = previous.vectorFrom(control);
+                const vector2 = next.vectorFrom(control);
+                const d = waypoint.radius * Math.tan(Math.abs(waypoint.turn) / 2);
+                if (vector1.distance() < d) {
+                    const overlap = d - vector1.distance();
+                    control = control.translate(vector2.scale(overlap / vector2.distance()));
+                }
+                if (vector2.distance() < d) {
+                    const overlap = d - vector2.distance();
+                    control = control.translate(vector1.scale(overlap / vector1.distance()));
+                }
+
+                ctx.arcTo(...control.xy, ...next.xy, waypoint.radius);
+                previous = next;
+            }
+            ctx.lineTo(...this.end.xy);
+        }
+
+        distanceFrom(point) {
+            let minDistance = Infinity;
+            for (let i = 0; i < this.waypoints.length + 1; i++) {
+                const segment = this.segment(i);
+                const distance = getDistanceToLine(...segment.from.xy, ...segment.to.xy, ...point.xy);
+                minDistance = Math.min(distance, minDistance);
+            }
+            return minDistance
+        }
+    }
+
+    const compareWaypoints = (a, b) => {
+        if (a.length === 0 && b.length === 0) return 0
+
+        if (a.length === 0) {
+            return -Math.sign(b[0].turn)
+        }
+
+        if (b.length === 0) {
+            return Math.sign(a[0].turn)
+        }
+
+        const aFirstWaypoint = a[0];
+        const bFirstWaypoint = b[0];
+
+        if (aFirstWaypoint.turn !== bFirstWaypoint.turn) {
+            return Math.sign(aFirstWaypoint.turn - bFirstWaypoint.turn)
+        }
+
+        if (Math.abs(aFirstWaypoint.distance - bFirstWaypoint.distance) > 0.0001) {
+            return Math.sin(a[0].turn) * Math.sign(bFirstWaypoint.distance - aFirstWaypoint.distance)
+        }
+
+        return compareWaypoints(a.slice(1), b.slice(1))
+    };
+
+    class ElbowArrow {
+        constructor(startCentre, endCentre, startRadius, endRadius, startAttachment, endAttachment, dimensions) {
+            this.dimensions = dimensions;
+            const fixedEnd = (startAttachment && startAttachment.attachment.name !== 'normal') ? 'start' : 'end';
+            const fixedAttachment = fixedEnd === 'start' ? startAttachment : endAttachment;
+            const arcRadius = 40 + fixedAttachment.radiusOrdinal * 10;
+            const fixedCentre = fixedEnd === 'start' ? startCentre : endCentre;
+            const normalCentre = fixedEnd === 'end' ? startCentre : endCentre;
+            const fixedRadius = fixedEnd === 'start' ? startRadius : endRadius + dimensions.headHeight - dimensions.chinHeight;
+            const fixedDivergeRadius = fixedEnd === 'start' ? startRadius + startAttachment.minNormalDistance : endRadius + Math.max(endAttachment.minNormalDistance, dimensions.headHeight - dimensions.chinHeight);
+            const normalRadius = fixedEnd === 'end' ? startRadius : endRadius + dimensions.headHeight - dimensions.chinHeight;
+            const fixedAttachAngle = fixedAttachment.attachment.angle;
+            const offset = (fixedAttachment.ordinal - (fixedAttachment.total - 1) / 2) * 10;
+            const fixedAttach = fixedCentre.translate(new Vector(fixedRadius, offset).rotate(fixedAttachAngle));
+            const fixedDiverge = fixedCentre.translate(new Vector(fixedDivergeRadius, offset).rotate(fixedAttachAngle));
+            const normalCentreRelative = normalCentre.translate(fixedDiverge.vectorFromOrigin().invert()).rotate(-fixedAttachAngle);
+            const arcCentre = new Point(0, normalCentreRelative.y < 0 ? -arcRadius : arcRadius);
+            const arcCentreVector = normalCentreRelative.vectorFrom(arcCentre);
+            const gamma = Math.asin(arcRadius / arcCentreVector.distance());
+            const theta = gamma + Math.abs(arcCentreVector.angle());
+            const d = arcRadius * Math.tan(theta / 2);
+            const control = fixedAttach.translate(new Vector(d, 0).rotate(fixedAttachAngle));
+            const normalAttachAngle = control.vectorFrom(normalCentre).angle();
+            const normalAttach = normalCentre.translate(new Vector(normalRadius, 0).rotate(normalAttachAngle));
+
+            const path = new SeekAndDestroy(fixedAttach, fixedAttachAngle, normalAttach, normaliseAngle(normalAttachAngle + Math.PI));
+            path.forwardToWaypoint(d + fixedDivergeRadius - fixedRadius, Math.sign(path.endDirectionRelative) * theta, arcRadius);
+
+            const longestSegment = path.segment(1);
+            this.midShaft = longestSegment.from.translate(longestSegment.to.vectorFrom(longestSegment.from).scale(0.5));
+            this.midShaftAngle = longestSegment.from.vectorFrom(longestSegment.to).angle();
+            if (fixedEnd === 'start') {
+                this.midShaftAngle = normaliseAngle(this.midShaftAngle + Math.PI);
+            }
+
+            this.path = fixedEnd === 'start' ? path : path.inverse();
+        }
+
+        distanceFrom(point) {
+            return this.path.distanceFrom(point)
+        }
+
+        draw(ctx) {
+            ctx.save();
+            ctx.beginPath();
+            this.path.draw(ctx);
+            ctx.lineWidth = this.dimensions.arrowWidth;
+            ctx.strokeStyle = this.dimensions.arrowColor;
+            ctx.stroke();
+            if (this.dimensions.hasArrowHead) {
+                ctx.translate(...this.path.end.xy);
+                ctx.rotate(this.path.endDirection);
+                ctx.translate(this.dimensions.headHeight - this.dimensions.chinHeight, 0);
+                ctx.fillStyle = this.dimensions.arrowColor;
+                arrowHead(ctx, this.dimensions.headHeight, this.dimensions.chinHeight, this.dimensions.headWidth, true, false);
+                ctx.fill();
+            }
+            ctx.restore();
+        }
+
+        drawSelectionIndicator(ctx) {
+            const indicatorWidth = 10;
+            ctx.save();
+            ctx.beginPath();
+            this.path.draw(ctx);
+            ctx.lineWidth = this.dimensions.arrowWidth + indicatorWidth;
+            ctx.lineCap = 'round';
+            ctx.strokeStyle = this.dimensions.selectionColor;
+            ctx.stroke();
+            if (this.dimensions.hasArrowHead) {
+                ctx.translate(...this.path.end.xy);
+                ctx.rotate(this.path.endDirection);
+                ctx.translate(this.dimensions.headHeight - this.dimensions.chinHeight, 0);
+                ctx.lineWidth = indicatorWidth;
+                ctx.lineJoin = 'round';
+                arrowHead(ctx, this.dimensions.headHeight, this.dimensions.chinHeight, this.dimensions.headWidth, false, true);
+                ctx.stroke();
+            }
+            ctx.restore();
+        }
+
+        midPoint() {
+            return this.midShaft
+        }
+
+        shaftAngle() {
+            return this.midShaftAngle
+        }
+
+        get arrowKind() {
+            return 'straight'
+        }
+    }
+
+    class RectilinearArrow {
+        constructor(startCentre, endCentre, startRadius, endRadius, startAttachment, endAttachment, dimensions) {
+            this.dimensions = dimensions;
+            const arcRadius = startAttachment.total > endAttachment.total ? computeArcRadius(startAttachment) : computeArcRadius(endAttachment);
+            const startAttachAngle = startAttachment.attachment.angle;
+            const endAttachAngle = endAttachment.attachment.angle;
+            const startOffset = (startAttachment.ordinal - (startAttachment.total - 1) / 2) * 10;
+            const endOffset = (endAttachment.ordinal - (endAttachment.total - 1) / 2) * 10;
+            const endShaftRadius = endRadius + this.dimensions.headHeight - this.dimensions.chinHeight;
+            const startAttach = startCentre.translate(new Vector(startRadius, startOffset).rotate(startAttachAngle));
+            const endAttach = endCentre.translate(new Vector(endRadius, endOffset).rotate(endAttachAngle));
+            this.endShaft = endCentre.translate(new Vector(endShaftRadius, endOffset).rotate(endAttachAngle));
+            const startNormalDistance = arcRadius + startAttachment.minNormalDistance;
+            const endNormalDistance = arcRadius + endAttachment.minNormalDistance - (this.dimensions.headHeight - this.dimensions.chinHeight);
+
+            const fanOut = startAttachment.total > endAttachment.total;
+
+            this.shaft = new SeekAndDestroy(startAttach, startAttachAngle, this.endShaft, normaliseAngle(endAttachAngle + Math.PI));
+            let longestSegmentIndex;
+
+            const initialAngle = Math.abs(Math.round(this.shaft.endDirectionRelative * 180 / Math.PI));
+            switch (initialAngle) {
+                case 0:
+                    if (this.shaft.endRelative.x > 0) {
+                        if (this.shaft.endRelative.y === 0) {
+                            longestSegmentIndex = 0;
+                        } else {
+                            const distance = this.shaft.endRelative.x < arcRadius * 2 ? this.shaft.endRelative.x / 2 :
+                                (fanOut ? startNormalDistance : this.shaft.endRelative.x - endNormalDistance);
+                            this.shaft.forwardToWaypoint(distance, this.shaft.rightAngleTowardsEnd, arcRadius);
+                            this.shaft.forwardToWaypoint(this.shaft.endRelative.x, this.shaft.rightAngleTowardsEnd, arcRadius);
+
+                            longestSegmentIndex = fanOut ? 2 : 0;
+                        }
+                    } else {
+                        this.shaft.forwardToWaypoint(startNormalDistance, this.shaft.rightAngleTowardsEnd, arcRadius);
+                        const distance = Math.max(startNormalDistance + startRadius, this.shaft.endRelative.x + endRadius + arcRadius);
+                        this.shaft.forwardToWaypoint(distance, this.shaft.rightAngleTowardsEnd, arcRadius);
+                        this.shaft.forwardToWaypoint(this.shaft.endRelative.x + endNormalDistance, this.shaft.rightAngleTowardsEnd, arcRadius);
+                        this.shaft.forwardToWaypoint(this.shaft.endRelative.x, this.shaft.rightAngleTowardsEnd, arcRadius);
+
+                        longestSegmentIndex = 2;
+                    }
+                    break
+
+                case 90:
+                    if (this.shaft.endRelative.x > 0) {
+                        if (this.shaft.endDirectionRelative * this.shaft.endRelative.y < 0) {
+                            this.shaft.forwardToWaypoint(this.shaft.endRelative.x - endRadius - arcRadius, this.shaft.rightAngleTowardsEnd, arcRadius);
+                            this.shaft.forwardToWaypoint(this.shaft.endRelative.x + arcRadius, this.shaft.rightAngleTowardsEnd, arcRadius);
+                        }
+                        this.shaft.forwardToWaypoint(this.shaft.endRelative.x, this.shaft.rightAngleTowardsEnd, arcRadius);
+                        longestSegmentIndex = 0;
+                    } else {
+                        longestSegmentIndex = Math.abs(this.shaft.endRelative.x) > Math.abs(this.shaft.endRelative.y) ? 1 : 2;
+
+                        this.shaft.forwardToWaypoint(Math.max(startNormalDistance, arcRadius * 2 + this.shaft.endRelative.x), this.shaft.rightAngleTowardsEnd, arcRadius);
+                        this.shaft.forwardToWaypoint(Math.max(this.shaft.endRelative.x + arcRadius, arcRadius * 2), this.shaft.rightAngleTowardsEnd, arcRadius);
+                        this.shaft.forwardToWaypoint(this.shaft.endRelative.x, this.shaft.rightAngleTowardsEnd, arcRadius);
+                    }
+                    break
+
+                default:
+                    if (Math.abs(this.shaft.endRelative.y) > arcRadius * 2) {
+                        const distance = Math.max(arcRadius, this.shaft.endRelative.x + arcRadius);
+                        this.shaft.forwardToWaypoint(distance, this.shaft.rightAngleTowardsEnd, arcRadius);
+                        this.shaft.forwardToWaypoint(this.shaft.endRelative.x, this.shaft.rightAngleTowardsEnd, arcRadius);
+
+                        longestSegmentIndex = 1;
+                    } else {
+                        this.shaft.forwardToWaypoint(arcRadius, this.shaft.rightAngleTowardsEnd, arcRadius);
+                        this.shaft.forwardToWaypoint(arcRadius + startRadius, this.shaft.rightAngleTowardsEnd, arcRadius);
+                        this.shaft.forwardToWaypoint(this.shaft.endRelative.x - arcRadius, this.shaft.rightAngleTowardsEnd, arcRadius);
+                        this.shaft.forwardToWaypoint(this.shaft.endRelative.x, this.shaft.rightAngleTowardsEnd, arcRadius);
+
+                        longestSegmentIndex = 3;
+                    }
+            }
+
+            this.path = this.shaft.changeEnd(endAttach);
+
+            const longestSegment = this.shaft.segment(longestSegmentIndex);
+            this.midShaft = longestSegment.from.translate(longestSegment.to.vectorFrom(longestSegment.from).scale(0.5));
+            this.midShaftAngle = longestSegment.from.vectorFrom(longestSegment.to).angle();
+        }
+
+        distanceFrom(point) {
+            return this.path.distanceFrom(point)
+        }
+
+        draw(ctx) {
+            ctx.save();
+            ctx.beginPath();
+            this.shaft.draw(ctx);
+            ctx.lineWidth = this.dimensions.arrowWidth;
+            ctx.strokeStyle = this.dimensions.arrowColor;
+            ctx.stroke();
+            if (this.dimensions.hasArrowHead) {
+                ctx.translate(...this.endShaft.xy);
+                ctx.rotate(this.shaft.endDirection);
+                ctx.translate(this.dimensions.headHeight - this.dimensions.chinHeight, 0);
+                ctx.fillStyle = this.dimensions.arrowColor;
+                arrowHead(ctx, this.dimensions.headHeight, this.dimensions.chinHeight, this.dimensions.headWidth, true, false);
+                ctx.fill();
+            }
+            ctx.restore();
+        }
+
+        drawSelectionIndicator(ctx) {
+            const indicatorWidth = 10;
+            ctx.save();
+            ctx.beginPath();
+            this.shaft.draw(ctx);
+            ctx.lineWidth = this.dimensions.arrowWidth + indicatorWidth;
+            ctx.lineCap = 'round';
+            ctx.strokeStyle = this.dimensions.selectionColor;
+            ctx.stroke();
+            if (this.dimensions.hasArrowHead) {
+                ctx.translate(...this.endShaft.xy);
+                ctx.rotate(this.shaft.endDirection);
+                ctx.translate(this.dimensions.headHeight - this.dimensions.chinHeight, 0);
+                ctx.lineWidth = indicatorWidth;
+                ctx.lineJoin = 'round';
+                arrowHead(ctx, this.dimensions.headHeight, this.dimensions.chinHeight, this.dimensions.headWidth, false, true);
+                ctx.stroke();
+            }
+            ctx.restore();
+        }
+
+        midPoint() {
+            return this.midShaft
+        }
+
+        shaftAngle() {
+            return this.midShaftAngle
+        }
+
+        get arrowKind() {
+            return 'straight'
+        }
+    }
+
+    const computeArcRadius = (attachment) => {
+        return 40 + attachment.radiusOrdinal * 10
+    };
+
+    const relationshipArrowDimensions = (resolvedRelationship, graph, leftNode) => {
+        const style = styleKey => getStyleSelector(resolvedRelationship.relationship, styleKey, graph);
+        const startRadius = resolvedRelationship.from.radius + style('margin-start');
+        const endRadius = resolvedRelationship.to.radius + style('margin-end');
+        const arrowWidth = style('arrow-width');
+        const arrowColor = style('arrow-color');
+        const selectionColor = adaptForBackground(selectionBorder, style);
+
+        let hasArrowHead = false;
+        let headWidth = 0;
+        let headHeight = 0;
+        let chinHeight = 0;
+
+        const directionality = style('directionality');
+        if (directionality === 'directed') {
+            hasArrowHead = true;
+            headWidth = arrowWidth + 6 * Math.sqrt(arrowWidth);
+            headHeight = headWidth * 1.5;
+            chinHeight = headHeight / 10;
+        }
+
+        const separation = style('margin-peer');
+        const leftToRight = resolvedRelationship.from === leftNode;
+
+        return {
+            startRadius,
+            endRadius,
+            arrowWidth,
+            arrowColor,
+            selectionColor,
+            hasArrowHead,
+            headWidth,
+            headHeight,
+            chinHeight,
+            separation,
+            leftToRight
         }
     };
 
@@ -3705,154 +3639,6 @@
             });
         }
     }
-
-    class VisualGraph {
-        constructor(graph, nodes, relationshipBundles) {
-            this.graph = graph;
-            this.nodes = nodes;
-            this.relationshipBundles = relationshipBundles;
-        }
-
-        get style() {
-            return this.graph.style
-        }
-
-        entityAtPoint(point) {
-            const node = this.nodeAtPoint(point);
-            if (node) return { ...node,
-                entityType: 'node'
-            }
-
-            const nodeRing = this.nodeRingAtPoint(point);
-            if (nodeRing) return { ...nodeRing,
-                entityType: 'nodeRing'
-            }
-
-            const relationship = this.relationshipAtPoint(point);
-            if (relationship) return { ...relationship,
-                entityType: 'relationship'
-            }
-
-            return null
-        }
-
-        nodeAtPoint(point) {
-            return this.closestNode(point, (visualNode, distance) => {
-                return distance < visualNode.radius
-            })
-        }
-
-        nodeRingAtPoint(point) {
-            return this.closestNode(point, (visualNode, distance) => {
-                const nodeRadius = visualNode.radius;
-                return distance > nodeRadius && distance < nodeRadius + ringMargin
-            })
-        }
-
-        entitiesInBoundingBox(boundingBox) {
-            const nodes = this.graph.nodes.filter(node => boundingBox.contains(node.position))
-                .map(node => ({ ...node,
-                    entityType: 'node'
-                }));
-            const relationships = this.relationshipBundles.flatMap(bundle => bundle.routedRelationships)
-                .filter(routedRelationship => boundingBox.contains(routedRelationship.arrow.midPoint()))
-                .map(routedRelationship => routedRelationship.resolvedRelationship)
-                .map(relationship => ({ ...relationship,
-                    entityType: 'relationship'
-                }));
-
-            return [...nodes, ...relationships]
-        }
-
-        closestNode(point, hitTest) {
-            let closestDistance = Number.POSITIVE_INFINITY;
-            let closestNode = null;
-            this.graph.nodes.filter(node => node.status !== 'combined').forEach((node) => {
-                const visualNode = this.nodes[node.id];
-                const distance = visualNode.distanceFrom(point);
-                if (distance < closestDistance && hitTest(visualNode, distance)) {
-                    closestDistance = distance;
-                    closestNode = node;
-                }
-            });
-            return closestNode
-        }
-
-        relationshipAtPoint(point) {
-            return this.closestRelationship(point, (relationship, distance) => distance <= relationshipHitTolerance)
-        }
-
-        closestRelationship(point, hitTest) {
-            let minDistance = Number.POSITIVE_INFINITY;
-            let closestRelationship = null;
-            this.relationshipBundles.forEach(bundle => {
-                bundle.routedRelationships.forEach(routedRelationship => {
-                    const distance = routedRelationship.distanceFrom(point);
-                    if (distance < minDistance && hitTest(routedRelationship.resolvedRelationship, distance)) {
-                        minDistance = distance;
-                        closestRelationship = routedRelationship.resolvedRelationship;
-                    }
-                });
-            });
-
-            return closestRelationship
-        }
-
-        draw(ctx, displayOptions) {
-            ctx.save();
-            const viewTransformation = displayOptions.viewTransformation;
-            ctx.translate(viewTransformation.translateVector.dx, viewTransformation.translateVector.dy);
-            ctx.scale(viewTransformation.scale);
-            this.relationshipBundles.forEach(bundle => bundle.draw(ctx));
-            Object.values(this.nodes).forEach(visualNode => {
-                visualNode.draw(ctx);
-            });
-            ctx.restore();
-        }
-
-        boundingBox() {
-            const nodeBoxes = Object.values(this.nodes).map(node => node.boundingBox());
-            const relationshipBoxes = Object.values(this.relationshipBundles).map(bundle => bundle.boundingBox());
-            return combineBoundingBoxes([...nodeBoxes, ...relationshipBoxes])
-        }
-    }
-
-    class NodePair {
-        constructor(node1, node2, start, end) {
-            if (node1.id < node2.id) {
-                this.nodeA = node1;
-                this.attachA = start;
-                this.nodeB = node2;
-                this.attachB = end;
-            } else {
-                this.nodeA = node2;
-                this.attachA = end;
-                this.nodeB = node1;
-                this.attachB = start;
-            }
-        }
-
-        key() {
-            return `${this.nodeA.id}:${this.nodeB.id}:${attachKey(this.attachA)}:${attachKey(this.attachB)}`
-        }
-    }
-
-    const attachKey = (attach) => {
-        if (attach) {
-            return attach.attachment.name
-        }
-        return 'normal'
-    };
-
-    const bundle = (relationships) => {
-        const bundles = {};
-        relationships.forEach(r => {
-            const nodePair = new NodePair(r.from, r.to, r.startAttachment, r.endAttachment);
-            const bundle = bundles[nodePair.key()] || (bundles[nodePair.key()] = []);
-            bundle.push(r);
-        });
-        return Object.values(bundles)
-    };
 
     class CanvasAdaptor {
         constructor(ctx) {
@@ -4042,12 +3828,193 @@
         }
     }
 
+    const attachmentOptions = [{
+            name: 'top',
+            angle: -Math.PI / 2
+        },
+        {
+            name: 'right',
+            angle: 0
+        },
+        {
+            name: 'bottom',
+            angle: Math.PI / 2
+        },
+        {
+            name: 'left',
+            angle: Math.PI
+        }
+    ];
+
+    const computeRelationshipAttachments = (graph, visualNodes) => {
+        const nodeAttachments = {};
+        const countAttachment = (nodeId, attachmentOptionName) => {
+            const nodeCounters = nodeAttachments[nodeId] || (nodeAttachments[nodeId] = {});
+            nodeCounters[attachmentOptionName] = (nodeCounters[attachmentOptionName] || 0) + 1;
+        };
+
+        graph.relationships.forEach(relationship => {
+            const style = styleAttribute => getStyleSelector(relationship, styleAttribute, graph);
+            countAttachment(relationship.fromId, style('attachment-start'));
+            countAttachment(relationship.toId, style('attachment-end'));
+        });
+
+        const centralAttachment = (nodeId, attachmentOptionName) => {
+            const total = nodeAttachments[nodeId][attachmentOptionName];
+            return {
+                attachment: findOption(attachmentOptionName),
+                ordinal: (total - 1) / 2,
+                radiusOrdinal: 0,
+                minNormalDistance: 0,
+                total
+            }
+        };
+
+        const routedRelationships = graph.relationships.map(relationship => {
+            const style = styleAttribute => getStyleSelector(relationship, styleAttribute, graph);
+            const startAttachment = centralAttachment(relationship.fromId, style('attachment-start'));
+            const endAttachment = centralAttachment(relationship.toId, style('attachment-end'));
+
+            const resolvedRelationship = new ResolvedRelationship(
+                relationship,
+                visualNodes[relationship.fromId],
+                visualNodes[relationship.toId],
+                startAttachment,
+                endAttachment,
+                false,
+                graph
+            );
+
+            let arrow;
+            
+            if (startAttachment.attachment.name !== 'normal' || endAttachment.attachment.name !== 'normal') {
+                if (startAttachment.attachment.name !== 'normal' && endAttachment.attachment.name !== 'normal') {
+                    const dimensions = relationshipArrowDimensions(resolvedRelationship, graph, resolvedRelationship.from);
+                    arrow = new RectilinearArrow(
+                        resolvedRelationship.from.position,
+                        resolvedRelationship.to.position,
+                        dimensions.startRadius,
+                        dimensions.endRadius,
+                        resolvedRelationship.startAttachment,
+                        resolvedRelationship.endAttachment,
+                        dimensions
+                    );
+                } else {
+                    const dimensions = relationshipArrowDimensions(resolvedRelationship, graph, resolvedRelationship.from);
+                    arrow = new ElbowArrow(
+                        resolvedRelationship.from.position,
+                        resolvedRelationship.to.position,
+                        dimensions.startRadius,
+                        dimensions.endRadius,
+                        resolvedRelationship.startAttachment,
+                        resolvedRelationship.endAttachment,
+                        dimensions
+                    );
+                }
+            }
+            return {
+                resolvedRelationship,
+                arrow
+            }
+        });
+
+        const relationshipAttachments = {
+            start: {},
+            end: {}
+        };
+        graph.nodes.forEach(node => {
+            const relationships = routedRelationships
+                .filter(routedRelationship =>
+                    node.id === routedRelationship.resolvedRelationship.from.id ||
+                    node.id === routedRelationship.resolvedRelationship.to.id);
+
+            attachmentOptions.forEach(option => {
+                const relevantRelationships = relationships.filter(routedRelationship => {
+                    const startAttachment = routedRelationship.resolvedRelationship.startAttachment;
+                    const endAttachment = routedRelationship.resolvedRelationship.endAttachment;
+                    return (startAttachment.attachment === option && node.id === routedRelationship.resolvedRelationship.from.id) ||
+                        (endAttachment.attachment === option && node.id === routedRelationship.resolvedRelationship.to.id)
+                });
+
+                const neighbours = relevantRelationships.map(routedRelationship => {
+                    const direction = (
+                        routedRelationship.resolvedRelationship.from.id === node.id &&
+                        routedRelationship.resolvedRelationship.startAttachment.attachment === option
+                    ) ? 'start' : 'end';
+                    let path, headSpace = 0;
+                    if (routedRelationship.arrow) {
+                        if (direction === 'end') {
+                            const dimensions = routedRelationship.arrow.dimensions;
+                            headSpace = dimensions.headHeight - dimensions.chinHeight;
+                        }
+                        if (routedRelationship.arrow.path && routedRelationship.arrow.path.waypoints) {
+                            if (direction === 'start') {
+                                path = routedRelationship.arrow.path;
+                            } else {
+                                path = routedRelationship.arrow.path.inverse();
+                            }
+                        }
+                    }
+
+                    return {
+                        relationship: routedRelationship.resolvedRelationship.relationship,
+                        direction,
+                        path,
+                        headSpace
+                    }
+                });
+
+                const maxHeadSpace = Math.max(...neighbours.map(neighbour => neighbour.headSpace));
+
+                neighbours.sort((a, b) => {
+                    return (a.path && b.path) ? compareWaypoints(a.path.waypoints, b.path.waypoints) : 0
+                });
+                
+                neighbours.forEach((neighbour, i) => {
+                    relationshipAttachments[neighbour.direction][neighbour.relationship.id] = {
+                        attachment: option,
+                        ordinal: i,
+                        radiusOrdinal: computeRadiusOrdinal(neighbour.path, i, neighbours.length),
+                        minNormalDistance: maxHeadSpace,
+                        total: neighbours.length
+                    };
+                });
+            });
+        });
+
+        return relationshipAttachments
+    };
+
+    const findOption = (optionName) => {
+        return attachmentOptions.find(option => option.name === optionName) || {
+            name: 'normal'
+        }
+    };
+
+    const computeRadiusOrdinal = (path, ordinal, total) => {
+        if (path) {
+            const polarity = path.polarity;
+
+            switch (polarity) {
+                case -1:
+                    return ordinal
+
+                case 1:
+                    return total - ordinal - 1
+
+                default:
+                    return Math.max(ordinal, total - ordinal - 1)
+            }
+        }
+        return 0
+    };
+
     const measureTextContext = (() => {
         const canvas = window.document.createElement('canvas');
         return new CanvasAdaptor(canvas.getContext('2d'))
     })();
 
-    function getVisualNode(node, graph, selection, cachedImages) {
+    const getVisualNode = (node, graph, selection, cachedImages) => {
         return new VisualNode(
             node,
             graph,
@@ -4056,9 +4023,9 @@
             measureTextContext,
             cachedImages
         )
-    }
+    };
 
-    function getVisualGraph(graph, selection, cachedImages) {
+    const getVisualGraph = (graph, selection, cachedImages) => {
         // node -> VisualNode
         const visualNodes = graph.nodes.reduce((nodeMap, node) => {
             nodeMap[node.id] = getVisualNode(node, graph, selection, cachedImages);
@@ -4089,7 +4056,7 @@
 
         // 可视化图
         return new VisualGraph(graph, visualNodes, relationshipBundles, measureTextContext)
-    }
+    };
 
     const canvasPadding = 50;
 
@@ -4287,11 +4254,10 @@
             merge(this.options, options);
 
             this.initPointClass(graph);
-
+            // 适配二倍屏
             this.fitCanvasSize(this.canvas, this.options);
             const visualGraph = getVisualGraph(graph, this.selection, '');
             this.options.viewTransformation = calculateViewportTranslation(visualGraph, {width: this.options.width, height: this.options.height});
-            // console.log(res)
 
             this.renderVisuals({
                 visualGraph,
@@ -4346,7 +4312,6 @@
             visualGraph,
             displayOptions
         }) {
-            console.log(visualGraph, displayOptions);
             const ctx = this.canvas.getContext('2d');
             ctx.clearRect(0, 0, displayOptions.width, displayOptions.height);
         

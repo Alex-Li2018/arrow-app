@@ -1,7 +1,3 @@
-import {
-    createSelector
-} from "reselect";
-import memoize from "memoizee";
 import VisualNode from "../graphics/VisualNode";
 import ResolvedRelationship from "../graphics/ResolvedRelationship";
 import VisualGraph from "../graphics/VisualGraph";
@@ -25,11 +21,6 @@ import {
 import {
     BackgroundImage
 } from "../graphics/BackgroundImage";
-
-const getSelection = (state) => state.selection
-const getMouse = (state) => state.mouse
-const getViewTransformation = (state) => state.viewTransformation
-const getCachedImages = (state) => state.cachedImages
 
 export const getPresentGraph = state => state.graph.present || state.graph
 
@@ -59,76 +50,67 @@ export const measureTextContext = (() => {
     return new CanvasAdaptor(canvas.getContext('2d'))
 })()
 
-export const getVisualNode = (() => {
-    const factory = (node, graph, selection, cachedImages) => {
-        return new VisualNode(
-            node,
-            graph,
-            nodeSelected(selection, node.id),
-            nodeEditing(selection, node.id),
-            measureTextContext,
-            cachedImages
+export const getVisualNode = (node, graph, selection, cachedImages) => {
+    return new VisualNode(
+        node,
+        graph,
+        nodeSelected(selection, node.id),
+        nodeEditing(selection, node.id),
+        measureTextContext,
+        cachedImages
+    )
+}
+
+export const getVisualGraph = (graph, selection, cachedImages) => {
+    // node -> VisualNode
+    const visualNodes = graph.nodes.reduce((nodeMap, node) => {
+        nodeMap[node.id] = getVisualNode(node, graph, selection, cachedImages)
+        return nodeMap
+    }, {})
+
+    // 计算边
+    const relationshipAttachments = computeRelationshipAttachments(graph, visualNodes)
+
+    // relationship -> ResolvedRelationship
+    const resolvedRelationships = graph.relationships.map(relationship =>
+        new ResolvedRelationship(
+            relationship,
+            visualNodes[relationship.fromId],
+            visualNodes[relationship.toId],
+            relationshipAttachments.start[relationship.id],
+            relationshipAttachments.end[relationship.id],
+            // 是否被选中
+            relationshipSelected(selection, relationship.id),
+            graph
         )
-    }
-    return memoize(factory, {
-        max: 10000
+    )
+    
+    // 对应的边的箭头样式
+    const relationshipBundles = bundle(resolvedRelationships).map(bundle => {
+        return new RoutedRelationshipBundle(bundle, graph, selection, measureTextContext, cachedImages);
     })
-})()
 
-export const getVisualGraph = createSelector(
-    [getGraph, getSelection, getCachedImages],
-    (graph, selection, cachedImages) => {
-        const visualNodes = graph.nodes.reduce((nodeMap, node) => {
-            nodeMap[node.id] = getVisualNode(node, graph, selection, cachedImages)
-            return nodeMap
-        }, {})
+    // 可视化图
+    return new VisualGraph(graph, visualNodes, relationshipBundles, measureTextContext)
+}
 
-        const relationshipAttachments = computeRelationshipAttachments(graph, visualNodes)
+export const getBackgroundImage = (graph, cachedImages) => {
+    return new BackgroundImage(graph.style, cachedImages)
+}
 
-        const resolvedRelationships = graph.relationships.map(relationship =>
-            new ResolvedRelationship(
-                relationship,
-                visualNodes[relationship.fromId],
-                visualNodes[relationship.toId],
-                relationshipAttachments.start[relationship.id],
-                relationshipAttachments.end[relationship.id],
-                relationshipSelected(selection, relationship.id),
-                graph)
-        )
-        const relationshipBundles = bundle(resolvedRelationships).map(bundle => {
-            return new RoutedRelationshipBundle(bundle, graph, selection, measureTextContext, cachedImages);
+export const getTransformationHandles = (visualGraph, selection, mouse, viewTransformation) => {
+    return new TransformationHandles(visualGraph, selection, mouse, viewTransformation)
+}
+
+export const getPositionsOfSelectedNodes = (visualGraph, selection) => {
+    const nodePositions = []
+    selectedNodeIds(selection).forEach((nodeId) => {
+        const visualNode = visualGraph.nodes[nodeId]
+        nodePositions.push({
+            nodeId: visualNode.id,
+            position: visualNode.position,
+            radius: visualNode.radius
         })
-
-        return new VisualGraph(graph, visualNodes, relationshipBundles, measureTextContext)
-    }
-)
-
-export const getBackgroundImage = createSelector(
-    [getGraph, getCachedImages],
-    (graph, cachedImages) => {
-        return new BackgroundImage(graph.style, cachedImages)
-    }
-)
-
-export const getTransformationHandles = createSelector(
-    [getVisualGraph, getSelection, getMouse, getViewTransformation],
-    (visualGraph, selection, mouse, viewTransformation) => {
-        return new TransformationHandles(visualGraph, selection, mouse, viewTransformation)
-    }
-)
-
-export const getPositionsOfSelectedNodes = createSelector(
-    [getVisualGraph, getSelection],
-    (visualGraph, selection) => {
-        const nodePositions = []
-        selectedNodeIds(selection).forEach((nodeId) => {
-            const visualNode = visualGraph.nodes[nodeId]
-            nodePositions.push({
-                nodeId: visualNode.id,
-                position: visualNode.position,
-                radius: visualNode.radius
-            })
-        })
-        return nodePositions
-    }
-)
+    })
+    return nodePositions
+}

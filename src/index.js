@@ -1,4 +1,4 @@
-import { getVisualGraph } from './state/graphState'
+import { getVisualGraph } from './selectors/index'
 import { Point } from './model/Point'
 import CanvasAdaptor from "./graphics/utils/CanvasAdaptor";
 import { calculateViewportTranslation } from './middlewares/viewportMiddleware'
