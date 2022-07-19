@@ -387,12 +387,12 @@
         styleAttributeGroups.flatMap(group => group.attributes)
         .map(attribute => [attribute.key, attribute]));
 
-    styleAttributeGroups
+    const nodeStyleAttributes = styleAttributeGroups
         .filter(group => group.entityTypes.includes('node'))
         .flatMap(group => group.attributes)
         .map(attribute => attribute.key);
 
-    styleAttributeGroups
+    const relationshipStyleAttributes = styleAttributeGroups
         .filter(group => group.entityTypes.includes('relationship'))
         .flatMap(group => group.attributes)
         .map(attribute => attribute.key);
@@ -479,6 +479,18 @@
             max: 1000,
             step: 5
         },
+    };
+
+    const completeWithDefaults = (style) => {
+        const completeStyle = {};
+        Object.keys(styleAttributes).forEach(key => {
+            if (style.hasOwnProperty(key)) {
+                completeStyle[key] = style[key];
+            } else {
+                completeStyle[key] = styleAttributes[key].defaultValue;
+            }
+        });
+        return completeStyle
     };
 
     const validate = (styleKey, value) => {
@@ -1145,6 +1157,74 @@
         }
     }
 
+    const moveTo = (node, newPosition) => {
+        return {
+            ...node,
+            position: newPosition
+        }
+    };
+
+    const addLabel = (node, label) => {
+        const labels = node.labels.includes(label) ? node.labels : [...node.labels, label];
+        return {
+            ...node,
+            labels: labels
+        }
+    };
+
+    const renameLabel = (node, oldLabel, newLabel) => {
+        const labels = [...node.labels];
+        const index = labels.indexOf(oldLabel);
+        if (index > -1) {
+            labels[index] = newLabel;
+        }
+        return {
+            ...node,
+            labels: labels
+        }
+    };
+
+    const removeLabel = (node, label) => {
+        const labels = [...node.labels];
+        const index = labels.indexOf(label);
+        if (index > -1) {
+            labels.splice(index, 1);
+        }
+        return {
+            ...node,
+            labels: labels
+        }
+    };
+
+    const setCaption = (node, caption) => {
+        return {
+            ...node,
+            caption
+        }
+    };
+
+    const setType = (relationship, type) => {
+        return {
+            id: relationship.id,
+            type,
+            style: relationship.style,
+            properties: relationship.properties,
+            fromId: relationship.fromId,
+            toId: relationship.toId
+        }
+    };
+
+    const reverse = relationship => {
+        return {
+            id: relationship.id,
+            type: relationship.type,
+            style: relationship.style,
+            properties: relationship.properties,
+            toId: relationship.fromId,
+            fromId: relationship.toId
+        }
+    };
+
     const otherNodeId = (relationship, nodeId) => {
         if (relationship.fromId === nodeId) {
             return relationship.toId
@@ -1153,6 +1233,100 @@
             return relationship.fromId
         }
         return undefined
+    };
+
+    const renameProperty = (entity, oldPropertyKey, newPropertyKey) => {
+        const properties = {};
+        Object.keys(entity.properties).forEach((key) => {
+            if (key === oldPropertyKey) {
+                properties[newPropertyKey] = entity.properties[oldPropertyKey];
+            } else {
+                properties[key] = entity.properties[key];
+            }
+        });
+        return {
+            ...entity,
+            properties
+        }
+    };
+
+    const setProperty = (entity, key, value) => {
+        const properties = { ...entity.properties
+        };
+        properties[key] = value;
+        return {
+            ...entity,
+            properties
+        }
+    };
+
+    const setArrowsProperty = (entity, key, value) => {
+        const newEntity = { ...entity
+        };
+
+        if (!newEntity.style) {
+            newEntity.style = {};
+        }
+
+        newEntity.style[key] = value;
+        Object.defineProperty(newEntity, key, {
+            get: function() {
+                return this.style[key]
+            }
+        });
+
+        return newEntity
+    };
+
+    const removeProperty = (entity, keyToRemove) => {
+        const properties = {};
+        Object.keys(entity.properties).forEach((key) => {
+            if (key !== keyToRemove) {
+                properties[key] = entity.properties[key];
+            }
+        });
+        return {
+            ...entity,
+            properties
+        }
+    };
+
+    const removeArrowsProperty = (entity, keyToRemove) => {
+        const style = { ...entity.style
+        };
+        delete style[keyToRemove];
+        return {
+            ...entity,
+            style
+        }
+    };
+
+    function idsMatch(a, b) {
+        return a === b
+    }
+
+    function nextAvailableId(entities, prefix = 'n') {
+        const currentIds = entities.map((entity) => entity.id)
+            .filter((id) => new RegExp(`^${prefix}[0-9]+$`).test(id))
+            .map((id) => parseInt(id.substring(1)))
+            .sort((x, y) => x - y);
+
+        return prefix + (currentIds.length > 0 ? currentIds.pop() + 1 : 0)
+    }
+
+    const emptyGraph = () => {
+        return {
+            nodes: [{
+                id: nextAvailableId([]),
+                position: new Point(0, 0),
+                caption: '',
+                style: {},
+                labels: [],
+                properties: {}
+            }],
+            relationships: [],
+            style: completeWithDefaults({})
+        }
     };
 
     const neighbourPositions = (node, graph) => {
@@ -4215,6 +4389,2149 @@
     //     }
     // }
 
+    /**
+     * Adapted from React: https://github.com/facebook/react/blob/master/packages/shared/formatProdErrorMessage.js
+     *
+     * Do not require this module directly! Use normal throw error calls. These messages will be replaced with error codes
+     * during build.
+     * @param {number} code
+     */
+    function formatProdErrorMessage(code) {
+      return "Minified Redux error #" + code + "; visit https://redux.js.org/Errors?code=" + code + " for the full message or " + 'use the non-minified dev environment for full errors. ';
+    }
+
+    // Inlined version of the `symbol-observable` polyfill
+    var $$observable = (function () {
+      return typeof Symbol === 'function' && Symbol.observable || '@@observable';
+    })();
+
+    /**
+     * These are private action types reserved by Redux.
+     * For any unknown actions, you must return the current state.
+     * If the current state is undefined, you must return the initial state.
+     * Do not reference these action types directly in your code.
+     */
+    var randomString = function randomString() {
+      return Math.random().toString(36).substring(7).split('').join('.');
+    };
+
+    var ActionTypes$1 = {
+      INIT: "@@redux/INIT" + randomString(),
+      REPLACE: "@@redux/REPLACE" + randomString(),
+      PROBE_UNKNOWN_ACTION: function PROBE_UNKNOWN_ACTION() {
+        return "@@redux/PROBE_UNKNOWN_ACTION" + randomString();
+      }
+    };
+
+    /**
+     * @param {any} obj The object to inspect.
+     * @returns {boolean} True if the argument appears to be a plain object.
+     */
+    function isPlainObject(obj) {
+      if (typeof obj !== 'object' || obj === null) return false;
+      var proto = obj;
+
+      while (Object.getPrototypeOf(proto) !== null) {
+        proto = Object.getPrototypeOf(proto);
+      }
+
+      return Object.getPrototypeOf(obj) === proto;
+    }
+
+    // Inlined / shortened version of `kindOf` from https://github.com/jonschlinkert/kind-of
+    function miniKindOf(val) {
+      if (val === void 0) return 'undefined';
+      if (val === null) return 'null';
+      var type = typeof val;
+
+      switch (type) {
+        case 'boolean':
+        case 'string':
+        case 'number':
+        case 'symbol':
+        case 'function':
+          {
+            return type;
+          }
+      }
+
+      if (Array.isArray(val)) return 'array';
+      if (isDate(val)) return 'date';
+      if (isError(val)) return 'error';
+      var constructorName = ctorName(val);
+
+      switch (constructorName) {
+        case 'Symbol':
+        case 'Promise':
+        case 'WeakMap':
+        case 'WeakSet':
+        case 'Map':
+        case 'Set':
+          return constructorName;
+      } // other
+
+
+      return type.slice(8, -1).toLowerCase().replace(/\s/g, '');
+    }
+
+    function ctorName(val) {
+      return typeof val.constructor === 'function' ? val.constructor.name : null;
+    }
+
+    function isError(val) {
+      return val instanceof Error || typeof val.message === 'string' && val.constructor && typeof val.constructor.stackTraceLimit === 'number';
+    }
+
+    function isDate(val) {
+      if (val instanceof Date) return true;
+      return typeof val.toDateString === 'function' && typeof val.getDate === 'function' && typeof val.setDate === 'function';
+    }
+
+    function kindOf(val) {
+      var typeOfVal = typeof val;
+
+      if (process.env.NODE_ENV !== 'production') {
+        typeOfVal = miniKindOf(val);
+      }
+
+      return typeOfVal;
+    }
+
+    /**
+     * @deprecated
+     *
+     * **We recommend using the `configureStore` method
+     * of the `@reduxjs/toolkit` package**, which replaces `createStore`.
+     *
+     * Redux Toolkit is our recommended approach for writing Redux logic today,
+     * including store setup, reducers, data fetching, and more.
+     *
+     * **For more details, please read this Redux docs page:**
+     * **https://redux.js.org/introduction/why-rtk-is-redux-today**
+     *
+     * `configureStore` from Redux Toolkit is an improved version of `createStore` that
+     * simplifies setup and helps avoid common bugs.
+     *
+     * You should not be using the `redux` core package by itself today, except for learning purposes.
+     * The `createStore` method from the core `redux` package will not be removed, but we encourage
+     * all users to migrate to using Redux Toolkit for all Redux code.
+     *
+     * If you want to use `createStore` without this visual deprecation warning, use
+     * the `legacy_createStore` import instead:
+     *
+     * `import { legacy_createStore as createStore} from 'redux'`
+     *
+     */
+
+    function createStore(reducer, preloadedState, enhancer) {
+      var _ref2;
+
+      if (typeof preloadedState === 'function' && typeof enhancer === 'function' || typeof enhancer === 'function' && typeof arguments[3] === 'function') {
+        throw new Error(process.env.NODE_ENV === "production" ? formatProdErrorMessage(0) : 'It looks like you are passing several store enhancers to ' + 'createStore(). This is not supported. Instead, compose them ' + 'together to a single function. See https://redux.js.org/tutorials/fundamentals/part-4-store#creating-a-store-with-enhancers for an example.');
+      }
+
+      if (typeof preloadedState === 'function' && typeof enhancer === 'undefined') {
+        enhancer = preloadedState;
+        preloadedState = undefined;
+      }
+
+      if (typeof enhancer !== 'undefined') {
+        if (typeof enhancer !== 'function') {
+          throw new Error(process.env.NODE_ENV === "production" ? formatProdErrorMessage(1) : "Expected the enhancer to be a function. Instead, received: '" + kindOf(enhancer) + "'");
+        }
+
+        return enhancer(createStore)(reducer, preloadedState);
+      }
+
+      if (typeof reducer !== 'function') {
+        throw new Error(process.env.NODE_ENV === "production" ? formatProdErrorMessage(2) : "Expected the root reducer to be a function. Instead, received: '" + kindOf(reducer) + "'");
+      }
+
+      var currentReducer = reducer;
+      var currentState = preloadedState;
+      var currentListeners = [];
+      var nextListeners = currentListeners;
+      var isDispatching = false;
+      /**
+       * This makes a shallow copy of currentListeners so we can use
+       * nextListeners as a temporary list while dispatching.
+       *
+       * This prevents any bugs around consumers calling
+       * subscribe/unsubscribe in the middle of a dispatch.
+       */
+
+      function ensureCanMutateNextListeners() {
+        if (nextListeners === currentListeners) {
+          nextListeners = currentListeners.slice();
+        }
+      }
+      /**
+       * Reads the state tree managed by the store.
+       *
+       * @returns {any} The current state tree of your application.
+       */
+
+
+      function getState() {
+        if (isDispatching) {
+          throw new Error(process.env.NODE_ENV === "production" ? formatProdErrorMessage(3) : 'You may not call store.getState() while the reducer is executing. ' + 'The reducer has already received the state as an argument. ' + 'Pass it down from the top reducer instead of reading it from the store.');
+        }
+
+        return currentState;
+      }
+      /**
+       * Adds a change listener. It will be called any time an action is dispatched,
+       * and some part of the state tree may potentially have changed. You may then
+       * call `getState()` to read the current state tree inside the callback.
+       *
+       * You may call `dispatch()` from a change listener, with the following
+       * caveats:
+       *
+       * 1. The subscriptions are snapshotted just before every `dispatch()` call.
+       * If you subscribe or unsubscribe while the listeners are being invoked, this
+       * will not have any effect on the `dispatch()` that is currently in progress.
+       * However, the next `dispatch()` call, whether nested or not, will use a more
+       * recent snapshot of the subscription list.
+       *
+       * 2. The listener should not expect to see all state changes, as the state
+       * might have been updated multiple times during a nested `dispatch()` before
+       * the listener is called. It is, however, guaranteed that all subscribers
+       * registered before the `dispatch()` started will be called with the latest
+       * state by the time it exits.
+       *
+       * @param {Function} listener A callback to be invoked on every dispatch.
+       * @returns {Function} A function to remove this change listener.
+       */
+
+
+      function subscribe(listener) {
+        if (typeof listener !== 'function') {
+          throw new Error(process.env.NODE_ENV === "production" ? formatProdErrorMessage(4) : "Expected the listener to be a function. Instead, received: '" + kindOf(listener) + "'");
+        }
+
+        if (isDispatching) {
+          throw new Error(process.env.NODE_ENV === "production" ? formatProdErrorMessage(5) : 'You may not call store.subscribe() while the reducer is executing. ' + 'If you would like to be notified after the store has been updated, subscribe from a ' + 'component and invoke store.getState() in the callback to access the latest state. ' + 'See https://redux.js.org/api/store#subscribelistener for more details.');
+        }
+
+        var isSubscribed = true;
+        ensureCanMutateNextListeners();
+        nextListeners.push(listener);
+        return function unsubscribe() {
+          if (!isSubscribed) {
+            return;
+          }
+
+          if (isDispatching) {
+            throw new Error(process.env.NODE_ENV === "production" ? formatProdErrorMessage(6) : 'You may not unsubscribe from a store listener while the reducer is executing. ' + 'See https://redux.js.org/api/store#subscribelistener for more details.');
+          }
+
+          isSubscribed = false;
+          ensureCanMutateNextListeners();
+          var index = nextListeners.indexOf(listener);
+          nextListeners.splice(index, 1);
+          currentListeners = null;
+        };
+      }
+      /**
+       * Dispatches an action. It is the only way to trigger a state change.
+       *
+       * The `reducer` function, used to create the store, will be called with the
+       * current state tree and the given `action`. Its return value will
+       * be considered the **next** state of the tree, and the change listeners
+       * will be notified.
+       *
+       * The base implementation only supports plain object actions. If you want to
+       * dispatch a Promise, an Observable, a thunk, or something else, you need to
+       * wrap your store creating function into the corresponding middleware. For
+       * example, see the documentation for the `redux-thunk` package. Even the
+       * middleware will eventually dispatch plain object actions using this method.
+       *
+       * @param {Object} action A plain object representing “what changed”. It is
+       * a good idea to keep actions serializable so you can record and replay user
+       * sessions, or use the time travelling `redux-devtools`. An action must have
+       * a `type` property which may not be `undefined`. It is a good idea to use
+       * string constants for action types.
+       *
+       * @returns {Object} For convenience, the same action object you dispatched.
+       *
+       * Note that, if you use a custom middleware, it may wrap `dispatch()` to
+       * return something else (for example, a Promise you can await).
+       */
+
+
+      function dispatch(action) {
+        if (!isPlainObject(action)) {
+          throw new Error(process.env.NODE_ENV === "production" ? formatProdErrorMessage(7) : "Actions must be plain objects. Instead, the actual type was: '" + kindOf(action) + "'. You may need to add middleware to your store setup to handle dispatching other values, such as 'redux-thunk' to handle dispatching functions. See https://redux.js.org/tutorials/fundamentals/part-4-store#middleware and https://redux.js.org/tutorials/fundamentals/part-6-async-logic#using-the-redux-thunk-middleware for examples.");
+        }
+
+        if (typeof action.type === 'undefined') {
+          throw new Error(process.env.NODE_ENV === "production" ? formatProdErrorMessage(8) : 'Actions may not have an undefined "type" property. You may have misspelled an action type string constant.');
+        }
+
+        if (isDispatching) {
+          throw new Error(process.env.NODE_ENV === "production" ? formatProdErrorMessage(9) : 'Reducers may not dispatch actions.');
+        }
+
+        try {
+          isDispatching = true;
+          currentState = currentReducer(currentState, action);
+        } finally {
+          isDispatching = false;
+        }
+
+        var listeners = currentListeners = nextListeners;
+
+        for (var i = 0; i < listeners.length; i++) {
+          var listener = listeners[i];
+          listener();
+        }
+
+        return action;
+      }
+      /**
+       * Replaces the reducer currently used by the store to calculate the state.
+       *
+       * You might need this if your app implements code splitting and you want to
+       * load some of the reducers dynamically. You might also need this if you
+       * implement a hot reloading mechanism for Redux.
+       *
+       * @param {Function} nextReducer The reducer for the store to use instead.
+       * @returns {void}
+       */
+
+
+      function replaceReducer(nextReducer) {
+        if (typeof nextReducer !== 'function') {
+          throw new Error(process.env.NODE_ENV === "production" ? formatProdErrorMessage(10) : "Expected the nextReducer to be a function. Instead, received: '" + kindOf(nextReducer));
+        }
+
+        currentReducer = nextReducer; // This action has a similiar effect to ActionTypes.INIT.
+        // Any reducers that existed in both the new and old rootReducer
+        // will receive the previous state. This effectively populates
+        // the new state tree with any relevant data from the old one.
+
+        dispatch({
+          type: ActionTypes$1.REPLACE
+        });
+      }
+      /**
+       * Interoperability point for observable/reactive libraries.
+       * @returns {observable} A minimal observable of state changes.
+       * For more information, see the observable proposal:
+       * https://github.com/tc39/proposal-observable
+       */
+
+
+      function observable() {
+        var _ref;
+
+        var outerSubscribe = subscribe;
+        return _ref = {
+          /**
+           * The minimal observable subscription method.
+           * @param {Object} observer Any object that can be used as an observer.
+           * The observer object should have a `next` method.
+           * @returns {subscription} An object with an `unsubscribe` method that can
+           * be used to unsubscribe the observable from the store, and prevent further
+           * emission of values from the observable.
+           */
+          subscribe: function subscribe(observer) {
+            if (typeof observer !== 'object' || observer === null) {
+              throw new Error(process.env.NODE_ENV === "production" ? formatProdErrorMessage(11) : "Expected the observer to be an object. Instead, received: '" + kindOf(observer) + "'");
+            }
+
+            function observeState() {
+              if (observer.next) {
+                observer.next(getState());
+              }
+            }
+
+            observeState();
+            var unsubscribe = outerSubscribe(observeState);
+            return {
+              unsubscribe: unsubscribe
+            };
+          }
+        }, _ref[$$observable] = function () {
+          return this;
+        }, _ref;
+      } // When a store is created, an "INIT" action is dispatched so that every
+      // reducer returns their initial state. This effectively populates
+      // the initial state tree.
+
+
+      dispatch({
+        type: ActionTypes$1.INIT
+      });
+      return _ref2 = {
+        dispatch: dispatch,
+        subscribe: subscribe,
+        getState: getState,
+        replaceReducer: replaceReducer
+      }, _ref2[$$observable] = observable, _ref2;
+    }
+
+    /**
+     * Prints a warning in the console if it exists.
+     *
+     * @param {String} message The warning message.
+     * @returns {void}
+     */
+    function warning(message) {
+      /* eslint-disable no-console */
+      if (typeof console !== 'undefined' && typeof console.error === 'function') {
+        console.error(message);
+      }
+      /* eslint-enable no-console */
+
+
+      try {
+        // This error was thrown as a convenience so that if you enable
+        // "break on all exceptions" in your console,
+        // it would pause the execution at this line.
+        throw new Error(message);
+      } catch (e) {} // eslint-disable-line no-empty
+
+    }
+
+    function getUnexpectedStateShapeWarningMessage(inputState, reducers, action, unexpectedKeyCache) {
+      var reducerKeys = Object.keys(reducers);
+      var argumentName = action && action.type === ActionTypes$1.INIT ? 'preloadedState argument passed to createStore' : 'previous state received by the reducer';
+
+      if (reducerKeys.length === 0) {
+        return 'Store does not have a valid reducer. Make sure the argument passed ' + 'to combineReducers is an object whose values are reducers.';
+      }
+
+      if (!isPlainObject(inputState)) {
+        return "The " + argumentName + " has unexpected type of \"" + kindOf(inputState) + "\". Expected argument to be an object with the following " + ("keys: \"" + reducerKeys.join('", "') + "\"");
+      }
+
+      var unexpectedKeys = Object.keys(inputState).filter(function (key) {
+        return !reducers.hasOwnProperty(key) && !unexpectedKeyCache[key];
+      });
+      unexpectedKeys.forEach(function (key) {
+        unexpectedKeyCache[key] = true;
+      });
+      if (action && action.type === ActionTypes$1.REPLACE) return;
+
+      if (unexpectedKeys.length > 0) {
+        return "Unexpected " + (unexpectedKeys.length > 1 ? 'keys' : 'key') + " " + ("\"" + unexpectedKeys.join('", "') + "\" found in " + argumentName + ". ") + "Expected to find one of the known reducer keys instead: " + ("\"" + reducerKeys.join('", "') + "\". Unexpected keys will be ignored.");
+      }
+    }
+
+    function assertReducerShape(reducers) {
+      Object.keys(reducers).forEach(function (key) {
+        var reducer = reducers[key];
+        var initialState = reducer(undefined, {
+          type: ActionTypes$1.INIT
+        });
+
+        if (typeof initialState === 'undefined') {
+          throw new Error(process.env.NODE_ENV === "production" ? formatProdErrorMessage(12) : "The slice reducer for key \"" + key + "\" returned undefined during initialization. " + "If the state passed to the reducer is undefined, you must " + "explicitly return the initial state. The initial state may " + "not be undefined. If you don't want to set a value for this reducer, " + "you can use null instead of undefined.");
+        }
+
+        if (typeof reducer(undefined, {
+          type: ActionTypes$1.PROBE_UNKNOWN_ACTION()
+        }) === 'undefined') {
+          throw new Error(process.env.NODE_ENV === "production" ? formatProdErrorMessage(13) : "The slice reducer for key \"" + key + "\" returned undefined when probed with a random type. " + ("Don't try to handle '" + ActionTypes$1.INIT + "' or other actions in \"redux/*\" ") + "namespace. They are considered private. Instead, you must return the " + "current state for any unknown actions, unless it is undefined, " + "in which case you must return the initial state, regardless of the " + "action type. The initial state may not be undefined, but can be null.");
+        }
+      });
+    }
+    /**
+     * Turns an object whose values are different reducer functions, into a single
+     * reducer function. It will call every child reducer, and gather their results
+     * into a single state object, whose keys correspond to the keys of the passed
+     * reducer functions.
+     *
+     * @param {Object} reducers An object whose values correspond to different
+     * reducer functions that need to be combined into one. One handy way to obtain
+     * it is to use ES6 `import * as reducers` syntax. The reducers may never return
+     * undefined for any action. Instead, they should return their initial state
+     * if the state passed to them was undefined, and the current state for any
+     * unrecognized action.
+     *
+     * @returns {Function} A reducer function that invokes every reducer inside the
+     * passed object, and builds a state object with the same shape.
+     */
+
+
+    function combineReducers(reducers) {
+      var reducerKeys = Object.keys(reducers);
+      var finalReducers = {};
+
+      for (var i = 0; i < reducerKeys.length; i++) {
+        var key = reducerKeys[i];
+
+        if (process.env.NODE_ENV !== 'production') {
+          if (typeof reducers[key] === 'undefined') {
+            warning("No reducer provided for key \"" + key + "\"");
+          }
+        }
+
+        if (typeof reducers[key] === 'function') {
+          finalReducers[key] = reducers[key];
+        }
+      }
+
+      var finalReducerKeys = Object.keys(finalReducers); // This is used to make sure we don't warn about the same
+      // keys multiple times.
+
+      var unexpectedKeyCache;
+
+      if (process.env.NODE_ENV !== 'production') {
+        unexpectedKeyCache = {};
+      }
+
+      var shapeAssertionError;
+
+      try {
+        assertReducerShape(finalReducers);
+      } catch (e) {
+        shapeAssertionError = e;
+      }
+
+      return function combination(state, action) {
+        if (state === void 0) {
+          state = {};
+        }
+
+        if (shapeAssertionError) {
+          throw shapeAssertionError;
+        }
+
+        if (process.env.NODE_ENV !== 'production') {
+          var warningMessage = getUnexpectedStateShapeWarningMessage(state, finalReducers, action, unexpectedKeyCache);
+
+          if (warningMessage) {
+            warning(warningMessage);
+          }
+        }
+
+        var hasChanged = false;
+        var nextState = {};
+
+        for (var _i = 0; _i < finalReducerKeys.length; _i++) {
+          var _key = finalReducerKeys[_i];
+          var reducer = finalReducers[_key];
+          var previousStateForKey = state[_key];
+          var nextStateForKey = reducer(previousStateForKey, action);
+
+          if (typeof nextStateForKey === 'undefined') {
+            var actionType = action && action.type;
+            throw new Error(process.env.NODE_ENV === "production" ? formatProdErrorMessage(14) : "When called with an action of type " + (actionType ? "\"" + String(actionType) + "\"" : '(unknown type)') + ", the slice reducer for key \"" + _key + "\" returned undefined. " + "To ignore an action, you must explicitly return the previous state. " + "If you want this reducer to hold no value, you can return null instead of undefined.");
+          }
+
+          nextState[_key] = nextStateForKey;
+          hasChanged = hasChanged || nextStateForKey !== previousStateForKey;
+        }
+
+        hasChanged = hasChanged || finalReducerKeys.length !== Object.keys(state).length;
+        return hasChanged ? nextState : state;
+      };
+    }
+
+    /*
+     * This is a dummy function to check if the function name has been altered by minification.
+     * If the function has been minified and NODE_ENV !== 'production', warn the user.
+     */
+
+    function isCrushed() {}
+
+    if (process.env.NODE_ENV !== 'production' && typeof isCrushed.name === 'string' && isCrushed.name !== 'isCrushed') {
+      warning('You are currently using minified code outside of NODE_ENV === "production". ' + 'This means that you are running a slower development build of Redux. ' + 'You can use loose-envify (https://github.com/zertosh/loose-envify) for browserify ' + 'or setting mode to production in webpack (https://webpack.js.org/concepts/mode/) ' + 'to ensure you have the correct code for your production build.');
+    }
+
+    const defaultName = 'Untitled graph';
+
+    const diagramName = (state = defaultName, action) => {
+        switch (action.type) {
+            case 'NEW_GOOGLE_DRIVE_DIAGRAM':
+            case 'NEW_LOCAL_STORAGE_DIAGRAM':
+                return defaultName
+
+            case 'SAVE_AS_GOOGLE_DRIVE_DIAGRAM':
+            case 'SAVE_AS_LOCAL_STORAGE_DIAGRAM':
+            case 'GETTING_DIAGRAM_NAME_SUCCEEDED':
+            case 'RENAME_DIAGRAM':
+                return action.diagramName
+
+            default:
+                return state
+        }
+    };
+
+    function getDefaultExportFromCjs (x) {
+    	return x && x.__esModule && Object.prototype.hasOwnProperty.call(x, 'default') ? x['default'] : x;
+    }
+
+    var lib = {};
+
+    var actions = {};
+
+    Object.defineProperty(actions, "__esModule", {
+      value: true
+    });
+    actions.ActionCreators = actions.ActionTypes = void 0;
+    var ActionTypes = {
+      UNDO: '@@redux-undo/UNDO',
+      REDO: '@@redux-undo/REDO',
+      JUMP_TO_FUTURE: '@@redux-undo/JUMP_TO_FUTURE',
+      JUMP_TO_PAST: '@@redux-undo/JUMP_TO_PAST',
+      JUMP: '@@redux-undo/JUMP',
+      CLEAR_HISTORY: '@@redux-undo/CLEAR_HISTORY'
+    };
+    actions.ActionTypes = ActionTypes;
+    var ActionCreators = {
+      undo: function undo() {
+        return {
+          type: ActionTypes.UNDO
+        };
+      },
+      redo: function redo() {
+        return {
+          type: ActionTypes.REDO
+        };
+      },
+      jumpToFuture: function jumpToFuture(index) {
+        return {
+          type: ActionTypes.JUMP_TO_FUTURE,
+          index: index
+        };
+      },
+      jumpToPast: function jumpToPast(index) {
+        return {
+          type: ActionTypes.JUMP_TO_PAST,
+          index: index
+        };
+      },
+      jump: function jump(index) {
+        return {
+          type: ActionTypes.JUMP,
+          index: index
+        };
+      },
+      clearHistory: function clearHistory() {
+        return {
+          type: ActionTypes.CLEAR_HISTORY
+        };
+      }
+    };
+    actions.ActionCreators = ActionCreators;
+
+    var helpers = {};
+
+    Object.defineProperty(helpers, "__esModule", {
+      value: true
+    });
+    helpers.parseActions = parseActions;
+    helpers.isHistory = isHistory;
+    helpers.includeAction = includeAction;
+    helpers.excludeAction = excludeAction;
+    helpers.combineFilters = combineFilters;
+    helpers.groupByActionTypes = groupByActionTypes;
+    helpers.newHistory = newHistory;
+
+    // parseActions helper: takes a string (or array)
+    //                      and makes it an array if it isn't yet
+    function parseActions(rawActions) {
+      var defaultValue = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : [];
+
+      if (Array.isArray(rawActions)) {
+        return rawActions;
+      } else if (typeof rawActions === 'string') {
+        return [rawActions];
+      }
+
+      return defaultValue;
+    } // isHistory helper: check for a valid history object
+
+
+    function isHistory(history) {
+      return typeof history.present !== 'undefined' && typeof history.future !== 'undefined' && typeof history.past !== 'undefined' && Array.isArray(history.future) && Array.isArray(history.past);
+    } // includeAction helper: whitelist actions to be added to the history
+
+
+    function includeAction(rawActions) {
+      var actions = parseActions(rawActions);
+      return function (action) {
+        return actions.indexOf(action.type) >= 0;
+      };
+    } // excludeAction helper: blacklist actions from being added to the history
+
+
+    function excludeAction(rawActions) {
+      var actions = parseActions(rawActions);
+      return function (action) {
+        return actions.indexOf(action.type) < 0;
+      };
+    } // combineFilters helper: combine multiple filters to one
+
+
+    function combineFilters() {
+      for (var _len = arguments.length, filters = new Array(_len), _key = 0; _key < _len; _key++) {
+        filters[_key] = arguments[_key];
+      }
+
+      return filters.reduce(function (prev, curr) {
+        return function (action, currentState, previousHistory) {
+          return prev(action, currentState, previousHistory) && curr(action, currentState, previousHistory);
+        };
+      }, function () {
+        return true;
+      });
+    }
+
+    function groupByActionTypes(rawActions) {
+      var actions = parseActions(rawActions);
+      return function (action) {
+        return actions.indexOf(action.type) >= 0 ? action.type : null;
+      };
+    }
+
+    function newHistory(past, present, future) {
+      var group = arguments.length > 3 && arguments[3] !== undefined ? arguments[3] : null;
+      return {
+        past: past,
+        present: present,
+        future: future,
+        group: group,
+        _latestUnfiltered: present,
+        index: past.length,
+        limit: past.length + future.length + 1
+      };
+    }
+
+    var reducer = {};
+
+    var debug = {};
+
+    Object.defineProperty(debug, "__esModule", {
+      value: true
+    });
+    debug.set = set;
+    debug.start = start;
+    debug.end = end;
+    debug.log = log;
+
+    function _toConsumableArray(arr) { return _arrayWithoutHoles(arr) || _iterableToArray(arr) || _nonIterableSpread(); }
+
+    function _nonIterableSpread() { throw new TypeError("Invalid attempt to spread non-iterable instance"); }
+
+    function _iterableToArray(iter) { if (Symbol.iterator in Object(iter) || Object.prototype.toString.call(iter) === "[object Arguments]") return Array.from(iter); }
+
+    function _arrayWithoutHoles(arr) { if (Array.isArray(arr)) { for (var i = 0, arr2 = new Array(arr.length); i < arr.length; i++) { arr2[i] = arr[i]; } return arr2; } }
+
+    var __DEBUG__;
+
+    var displayBuffer;
+    var colors = {
+      prevState: '#9E9E9E',
+      action: '#03A9F4',
+      nextState: '#4CAF50'
+    };
+    /* istanbul ignore next: debug messaging is not tested */
+
+    function initBuffer() {
+      displayBuffer = {
+        header: [],
+        prev: [],
+        action: [],
+        next: [],
+        msgs: []
+      };
+    }
+    /* istanbul ignore next: debug messaging is not tested */
+
+
+    function printBuffer() {
+      var _displayBuffer = displayBuffer,
+          header = _displayBuffer.header,
+          prev = _displayBuffer.prev,
+          next = _displayBuffer.next,
+          action = _displayBuffer.action,
+          msgs = _displayBuffer.msgs;
+
+      if (console.group) {
+        var _console, _console2, _console3, _console4, _console5;
+
+        (_console = console).groupCollapsed.apply(_console, _toConsumableArray(header));
+
+        (_console2 = console).log.apply(_console2, _toConsumableArray(prev));
+
+        (_console3 = console).log.apply(_console3, _toConsumableArray(action));
+
+        (_console4 = console).log.apply(_console4, _toConsumableArray(next));
+
+        (_console5 = console).log.apply(_console5, _toConsumableArray(msgs));
+
+        console.groupEnd();
+      } else {
+        var _console6, _console7, _console8, _console9, _console10;
+
+        (_console6 = console).log.apply(_console6, _toConsumableArray(header));
+
+        (_console7 = console).log.apply(_console7, _toConsumableArray(prev));
+
+        (_console8 = console).log.apply(_console8, _toConsumableArray(action));
+
+        (_console9 = console).log.apply(_console9, _toConsumableArray(next));
+
+        (_console10 = console).log.apply(_console10, _toConsumableArray(msgs));
+      }
+    }
+    /* istanbul ignore next: debug messaging is not tested */
+
+
+    function colorFormat(text, color, obj) {
+      return ["%c".concat(text), "color: ".concat(color, "; font-weight: bold"), obj];
+    }
+    /* istanbul ignore next: debug messaging is not tested */
+
+
+    function start(action, state) {
+      initBuffer();
+
+      if (__DEBUG__) {
+        if (console.group) {
+          displayBuffer.header = ['%credux-undo', 'font-style: italic', 'action', action.type];
+          displayBuffer.action = colorFormat('action', colors.action, action);
+          displayBuffer.prev = colorFormat('prev history', colors.prevState, state);
+        } else {
+          displayBuffer.header = ['redux-undo action', action.type];
+          displayBuffer.action = ['action', action];
+          displayBuffer.prev = ['prev history', state];
+        }
+      }
+    }
+    /* istanbul ignore next: debug messaging is not tested */
+
+
+    function end(nextState) {
+      if (__DEBUG__) {
+        if (console.group) {
+          displayBuffer.next = colorFormat('next history', colors.nextState, nextState);
+        } else {
+          displayBuffer.next = ['next history', nextState];
+        }
+
+        printBuffer();
+      }
+    }
+    /* istanbul ignore next: debug messaging is not tested */
+
+
+    function log() {
+      if (__DEBUG__) {
+        for (var _len = arguments.length, args = new Array(_len), _key = 0; _key < _len; _key++) {
+          args[_key] = arguments[_key];
+        }
+
+        displayBuffer.msgs = displayBuffer.msgs.concat([].concat(args, ['\n']));
+      }
+    }
+    /* istanbul ignore next: debug messaging is not tested */
+
+
+    function set(debug) {
+      __DEBUG__ = debug;
+    }
+
+    (function (exports) {
+
+    	function _typeof(obj) { if (typeof Symbol === "function" && typeof Symbol.iterator === "symbol") { _typeof = function _typeof(obj) { return typeof obj; }; } else { _typeof = function _typeof(obj) { return obj && typeof Symbol === "function" && obj.constructor === Symbol && obj !== Symbol.prototype ? "symbol" : typeof obj; }; } return _typeof(obj); }
+
+    	Object.defineProperty(exports, "__esModule", {
+    	  value: true
+    	});
+    	exports["default"] = undoable;
+
+    	var debug$1 = _interopRequireWildcard(debug);
+
+    	var _actions = actions;
+
+    	var _helpers = helpers;
+
+    	function _getRequireWildcardCache() { if (typeof WeakMap !== "function") return null; var cache = new WeakMap(); _getRequireWildcardCache = function _getRequireWildcardCache() { return cache; }; return cache; }
+
+    	function _interopRequireWildcard(obj) { if (obj && obj.__esModule) { return obj; } if (obj === null || _typeof(obj) !== "object" && typeof obj !== "function") { return { "default": obj }; } var cache = _getRequireWildcardCache(); if (cache && cache.has(obj)) { return cache.get(obj); } var newObj = {}; var hasPropertyDescriptor = Object.defineProperty && Object.getOwnPropertyDescriptor; for (var key in obj) { if (Object.prototype.hasOwnProperty.call(obj, key)) { var desc = hasPropertyDescriptor ? Object.getOwnPropertyDescriptor(obj, key) : null; if (desc && (desc.get || desc.set)) { Object.defineProperty(newObj, key, desc); } else { newObj[key] = obj[key]; } } } newObj["default"] = obj; if (cache) { cache.set(obj, newObj); } return newObj; }
+
+    	function ownKeys(object, enumerableOnly) { var keys = Object.keys(object); if (Object.getOwnPropertySymbols) { var symbols = Object.getOwnPropertySymbols(object); if (enumerableOnly) symbols = symbols.filter(function (sym) { return Object.getOwnPropertyDescriptor(object, sym).enumerable; }); keys.push.apply(keys, symbols); } return keys; }
+
+    	function _objectSpread(target) { for (var i = 1; i < arguments.length; i++) { var source = arguments[i] != null ? arguments[i] : {}; if (i % 2) { ownKeys(Object(source), true).forEach(function (key) { _defineProperty(target, key, source[key]); }); } else if (Object.getOwnPropertyDescriptors) { Object.defineProperties(target, Object.getOwnPropertyDescriptors(source)); } else { ownKeys(Object(source)).forEach(function (key) { Object.defineProperty(target, key, Object.getOwnPropertyDescriptor(source, key)); }); } } return target; }
+
+    	function _defineProperty(obj, key, value) { if (key in obj) { Object.defineProperty(obj, key, { value: value, enumerable: true, configurable: true, writable: true }); } else { obj[key] = value; } return obj; }
+
+    	function _toConsumableArray(arr) { return _arrayWithoutHoles(arr) || _iterableToArray(arr) || _nonIterableSpread(); }
+
+    	function _nonIterableSpread() { throw new TypeError("Invalid attempt to spread non-iterable instance"); }
+
+    	function _iterableToArray(iter) { if (Symbol.iterator in Object(iter) || Object.prototype.toString.call(iter) === "[object Arguments]") return Array.from(iter); }
+
+    	function _arrayWithoutHoles(arr) { if (Array.isArray(arr)) { for (var i = 0, arr2 = new Array(arr.length); i < arr.length; i++) { arr2[i] = arr[i]; } return arr2; } }
+
+    	function createHistory(state, ignoreInitialState) {
+    	  // ignoreInitialState essentially prevents the user from undoing to the
+    	  // beginning, in the case that the undoable reducer handles initialization
+    	  // in a way that can't be redone simply
+    	  var history = (0, _helpers.newHistory)([], state, []);
+
+    	  if (ignoreInitialState) {
+    	    history._latestUnfiltered = null;
+    	  }
+
+    	  return history;
+    	} // insert: insert `state` into history, which means adding the current state
+    	//         into `past`, setting the new `state` as `present` and erasing
+    	//         the `future`.
+
+
+    	function insert(history, state, limit, group) {
+    	  var lengthWithoutFuture = history.past.length + 1;
+    	  debug$1.log('inserting', state);
+    	  debug$1.log('new free: ', limit - lengthWithoutFuture);
+    	  var past = history.past,
+    	      _latestUnfiltered = history._latestUnfiltered;
+    	  var isHistoryOverflow = limit && limit <= lengthWithoutFuture;
+    	  var pastSliced = past.slice(isHistoryOverflow ? 1 : 0);
+    	  var newPast = _latestUnfiltered != null ? [].concat(_toConsumableArray(pastSliced), [_latestUnfiltered]) : pastSliced;
+    	  return (0, _helpers.newHistory)(newPast, state, [], group);
+    	} // jumpToFuture: jump to requested index in future history
+
+
+    	function jumpToFuture(history, index) {
+    	  if (index < 0 || index >= history.future.length) return history;
+    	  var past = history.past,
+    	      future = history.future,
+    	      _latestUnfiltered = history._latestUnfiltered;
+    	  var newPast = [].concat(_toConsumableArray(past), [_latestUnfiltered], _toConsumableArray(future.slice(0, index)));
+    	  var newPresent = future[index];
+    	  var newFuture = future.slice(index + 1);
+    	  return (0, _helpers.newHistory)(newPast, newPresent, newFuture);
+    	} // jumpToPast: jump to requested index in past history
+
+
+    	function jumpToPast(history, index) {
+    	  if (index < 0 || index >= history.past.length) return history;
+    	  var past = history.past,
+    	      future = history.future,
+    	      _latestUnfiltered = history._latestUnfiltered;
+    	  var newPast = past.slice(0, index);
+    	  var newFuture = [].concat(_toConsumableArray(past.slice(index + 1)), [_latestUnfiltered], _toConsumableArray(future));
+    	  var newPresent = past[index];
+    	  return (0, _helpers.newHistory)(newPast, newPresent, newFuture);
+    	} // jump: jump n steps in the past or forward
+
+
+    	function jump(history, n) {
+    	  if (n > 0) return jumpToFuture(history, n - 1);
+    	  if (n < 0) return jumpToPast(history, history.past.length + n);
+    	  return history;
+    	} // helper to dynamically match in the reducer's switch-case
+
+
+    	function actionTypeAmongClearHistoryType(actionType, clearHistoryType) {
+    	  return clearHistoryType.indexOf(actionType) > -1 ? actionType : !actionType;
+    	} // redux-undo higher order reducer
+
+
+    	function undoable(reducer) {
+    	  var rawConfig = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : {};
+    	  debug$1.set(rawConfig.debug);
+
+    	  var config = _objectSpread({
+    	    limit: undefined,
+    	    filter: function filter() {
+    	      return true;
+    	    },
+    	    groupBy: function groupBy() {
+    	      return null;
+    	    },
+    	    undoType: _actions.ActionTypes.UNDO,
+    	    redoType: _actions.ActionTypes.REDO,
+    	    jumpToPastType: _actions.ActionTypes.JUMP_TO_PAST,
+    	    jumpToFutureType: _actions.ActionTypes.JUMP_TO_FUTURE,
+    	    jumpType: _actions.ActionTypes.JUMP,
+    	    neverSkipReducer: false,
+    	    ignoreInitialState: false,
+    	    syncFilter: false
+    	  }, rawConfig, {
+    	    initTypes: (0, _helpers.parseActions)(rawConfig.initTypes, ['@@redux-undo/INIT']),
+    	    clearHistoryType: (0, _helpers.parseActions)(rawConfig.clearHistoryType, [_actions.ActionTypes.CLEAR_HISTORY])
+    	  }); // Allows the user to call the reducer with redux-undo specific actions
+
+
+    	  var skipReducer = config.neverSkipReducer ? function (res, action) {
+    	    for (var _len = arguments.length, slices = new Array(_len > 2 ? _len - 2 : 0), _key = 2; _key < _len; _key++) {
+    	      slices[_key - 2] = arguments[_key];
+    	    }
+
+    	    return _objectSpread({}, res, {
+    	      present: reducer.apply(void 0, [res.present, action].concat(slices))
+    	    });
+    	  } : function (res) {
+    	    return res;
+    	  };
+    	  var initialState;
+    	  return function () {
+    	    var state = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : initialState;
+    	    var action = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : {};
+    	    debug$1.start(action, state);
+    	    var history = state;
+
+    	    for (var _len2 = arguments.length, slices = new Array(_len2 > 2 ? _len2 - 2 : 0), _key2 = 2; _key2 < _len2; _key2++) {
+    	      slices[_key2 - 2] = arguments[_key2];
+    	    }
+
+    	    if (!initialState) {
+    	      debug$1.log('history is uninitialized');
+
+    	      if (state === undefined) {
+    	        var createHistoryAction = {
+    	          type: '@@redux-undo/CREATE_HISTORY'
+    	        };
+    	        var start = reducer.apply(void 0, [state, createHistoryAction].concat(slices));
+    	        history = createHistory(start, config.ignoreInitialState);
+    	        debug$1.log('do not set initialState on probe actions');
+    	        debug$1.end(history);
+    	        return history;
+    	      } else if ((0, _helpers.isHistory)(state)) {
+    	        history = initialState = config.ignoreInitialState ? state : (0, _helpers.newHistory)(state.past, state.present, state.future);
+    	        debug$1.log('initialHistory initialized: initialState is a history', initialState);
+    	      } else {
+    	        history = initialState = createHistory(state, config.ignoreInitialState);
+    	        debug$1.log('initialHistory initialized: initialState is not a history', initialState);
+    	      }
+    	    }
+
+    	    var res;
+
+    	    switch (action.type) {
+    	      case undefined:
+    	        return history;
+
+    	      case config.undoType:
+    	        res = jump(history, -1);
+    	        debug$1.log('perform undo');
+    	        debug$1.end(res);
+    	        return skipReducer.apply(void 0, [res, action].concat(slices));
+
+    	      case config.redoType:
+    	        res = jump(history, 1);
+    	        debug$1.log('perform redo');
+    	        debug$1.end(res);
+    	        return skipReducer.apply(void 0, [res, action].concat(slices));
+
+    	      case config.jumpToPastType:
+    	        res = jumpToPast(history, action.index);
+    	        debug$1.log("perform jumpToPast to ".concat(action.index));
+    	        debug$1.end(res);
+    	        return skipReducer.apply(void 0, [res, action].concat(slices));
+
+    	      case config.jumpToFutureType:
+    	        res = jumpToFuture(history, action.index);
+    	        debug$1.log("perform jumpToFuture to ".concat(action.index));
+    	        debug$1.end(res);
+    	        return skipReducer.apply(void 0, [res, action].concat(slices));
+
+    	      case config.jumpType:
+    	        res = jump(history, action.index);
+    	        debug$1.log("perform jump to ".concat(action.index));
+    	        debug$1.end(res);
+    	        return skipReducer.apply(void 0, [res, action].concat(slices));
+
+    	      case actionTypeAmongClearHistoryType(action.type, config.clearHistoryType):
+    	        res = createHistory(history.present, config.ignoreInitialState);
+    	        debug$1.log('perform clearHistory');
+    	        debug$1.end(res);
+    	        return skipReducer.apply(void 0, [res, action].concat(slices));
+
+    	      default:
+    	        res = reducer.apply(void 0, [history.present, action].concat(slices));
+
+    	        if (config.initTypes.some(function (actionType) {
+    	          return actionType === action.type;
+    	        })) {
+    	          debug$1.log('reset history due to init action');
+    	          debug$1.end(initialState);
+    	          return initialState;
+    	        }
+
+    	        if (history._latestUnfiltered === res) {
+    	          // Don't handle this action. Do not call debug.end here,
+    	          // because this action should not produce side effects to the console
+    	          return history;
+    	        }
+    	        /* eslint-disable-next-line no-case-declarations */
+
+
+    	        var filtered = typeof config.filter === 'function' && !config.filter(action, res, history);
+
+    	        if (filtered) {
+    	          // if filtering an action, merely update the present
+    	          var filteredState = (0, _helpers.newHistory)(history.past, res, history.future, history.group);
+
+    	          if (!config.syncFilter) {
+    	            filteredState._latestUnfiltered = history._latestUnfiltered;
+    	          }
+
+    	          debug$1.log('filter ignored action, not storing it in past');
+    	          debug$1.end(filteredState);
+    	          return filteredState;
+    	        }
+    	        /* eslint-disable-next-line no-case-declarations */
+
+
+    	        var group = config.groupBy(action, res, history);
+
+    	        if (group != null && group === history.group) {
+    	          // if grouping with the previous action, only update the present
+    	          var groupedState = (0, _helpers.newHistory)(history.past, res, history.future, history.group);
+    	          debug$1.log('groupBy grouped the action with the previous action');
+    	          debug$1.end(groupedState);
+    	          return groupedState;
+    	        } // If the action wasn't filtered or grouped, insert normally
+
+
+    	        history = insert(history, res, config.limit, group);
+    	        debug$1.log('inserted new state into history');
+    	        debug$1.end(history);
+    	        return history;
+    	    }
+    	  };
+    	}
+    } (reducer));
+
+    (function (exports) {
+
+    	Object.defineProperty(exports, "__esModule", {
+    	  value: true
+    	});
+    	Object.defineProperty(exports, "ActionTypes", {
+    	  enumerable: true,
+    	  get: function get() {
+    	    return _actions.ActionTypes;
+    	  }
+    	});
+    	Object.defineProperty(exports, "ActionCreators", {
+    	  enumerable: true,
+    	  get: function get() {
+    	    return _actions.ActionCreators;
+    	  }
+    	});
+    	Object.defineProperty(exports, "parseActions", {
+    	  enumerable: true,
+    	  get: function get() {
+    	    return _helpers.parseActions;
+    	  }
+    	});
+    	Object.defineProperty(exports, "isHistory", {
+    	  enumerable: true,
+    	  get: function get() {
+    	    return _helpers.isHistory;
+    	  }
+    	});
+    	Object.defineProperty(exports, "includeAction", {
+    	  enumerable: true,
+    	  get: function get() {
+    	    return _helpers.includeAction;
+    	  }
+    	});
+    	Object.defineProperty(exports, "excludeAction", {
+    	  enumerable: true,
+    	  get: function get() {
+    	    return _helpers.excludeAction;
+    	  }
+    	});
+    	Object.defineProperty(exports, "combineFilters", {
+    	  enumerable: true,
+    	  get: function get() {
+    	    return _helpers.combineFilters;
+    	  }
+    	});
+    	Object.defineProperty(exports, "groupByActionTypes", {
+    	  enumerable: true,
+    	  get: function get() {
+    	    return _helpers.groupByActionTypes;
+    	  }
+    	});
+    	Object.defineProperty(exports, "newHistory", {
+    	  enumerable: true,
+    	  get: function get() {
+    	    return _helpers.newHistory;
+    	  }
+    	});
+    	Object.defineProperty(exports, "default", {
+    	  enumerable: true,
+    	  get: function get() {
+    	    return _reducer["default"];
+    	  }
+    	});
+
+    	var _actions = actions;
+
+    	var _helpers = helpers;
+
+    	var _reducer = _interopRequireDefault(reducer);
+
+    	function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { "default": obj }; }
+    } (lib));
+
+    var undoable = /*@__PURE__*/getDefaultExportFromCjs(lib);
+
+    const graph = (state = emptyGraph(), action) => {
+        switch (action.type) {
+            case 'NEW_GOOGLE_DRIVE_DIAGRAM':
+            case 'NEW_LOCAL_STORAGE_DIAGRAM':
+                return emptyGraph()
+
+            case 'CREATE_NODE':
+                {
+                    const newNodes = state.nodes.slice();
+                    newNodes.push({
+                        id: action.newNodeId,
+                        position: action.newNodePosition,
+                        caption: action.caption,
+                        style: action.style,
+                        labels: [],
+                        properties: {}
+                    });
+                    return {
+                        style: state.style,
+                        nodes: newNodes,
+                        relationships: state.relationships
+                    }
+                }
+
+            case 'CREATE_NODES_AND_RELATIONSHIPS':
+                {
+                    const newNodes = [...state.nodes, ...action.targetNodeIds.map((targetNodeId, i) => {
+                        return {
+                            id: targetNodeId,
+                            position: action.targetNodePositions[i],
+                            caption: action.caption,
+                            style: action.style,
+                            labels: [],
+                            properties: {}
+                        }
+                    })];
+                    const newRelationships = [...state.relationships, ...action.newRelationshipIds.map((newRelationshipId, i) => {
+                        return {
+                            id: newRelationshipId,
+                            type: '',
+                            style: {},
+                            properties: {},
+                            fromId: action.sourceNodeIds[i],
+                            toId: action.targetNodeIds[i]
+                        }
+                    })];
+
+                    return {
+                        style: state.style,
+                        nodes: newNodes,
+                        relationships: newRelationships
+                    }
+                }
+
+            case 'CONNECT_NODES':
+                {
+                    const newRelationships = [...state.relationships, ...action.newRelationshipIds.map((newRelationshipId, i) => {
+                        return {
+                            id: newRelationshipId,
+                            type: '',
+                            style: {},
+                            properties: {},
+                            fromId: action.sourceNodeIds[i],
+                            toId: action.targetNodeIds[i]
+                        }
+                    })];
+                    return {
+                        style: state.style,
+                        nodes: state.nodes,
+                        relationships: newRelationships
+                    }
+                }
+
+            case 'SET_NODE_CAPTION':
+                {
+                    return {
+                        style: state.style,
+                        nodes: state.nodes.map((node) => nodeSelected(action.selection, node.id) ? setCaption(node, action.caption) : node),
+                        relationships: state.relationships
+                    }
+                }
+
+            case 'ADD_LABEL':
+                {
+                    return {
+                        style: state.style,
+                        nodes: state.nodes.map((node) => nodeSelected(action.selection, node.id) ? addLabel(node, action.label) : node),
+                        relationships: state.relationships
+                    }
+                }
+
+            case 'ADD_LABELS':
+                {
+                    return {
+                        style: state.style,
+                        nodes: state.nodes.map((node) => action.nodeLabels.hasOwnProperty(node.id) ? addLabel(node, action.nodeLabels[node.id]) : node),
+                        relationships: state.relationships
+                    }
+                }
+
+            case 'RENAME_LABEL':
+                {
+                    return {
+                        style: state.style,
+                        nodes: state.nodes.map((node) => nodeSelected(action.selection, node.id) ? renameLabel(node, action.oldLabel, action.newLabel) : node),
+                        relationships: state.relationships
+                    }
+                }
+
+            case 'REMOVE_LABEL':
+                {
+                    return {
+                        style: state.style,
+                        nodes: state.nodes.map((node) => nodeSelected(action.selection, node.id) ? removeLabel(node, action.label) : node),
+                        relationships: state.relationships
+                    }
+                }
+
+            case 'MERGE_NODES':
+                {
+                    const nodeIdMap = new Map();
+                    for (const spec of action.mergeSpecs) {
+                        for (const purgedNodeId of spec.purgedNodeIds) {
+                            nodeIdMap.set(purgedNodeId, spec.survivingNodeId);
+                        }
+                    }
+                    const translateNodeId = (nodeId) => nodeIdMap.has(nodeId) ? nodeIdMap.get(nodeId) : nodeId;
+                    return {
+                        style: state.style,
+                        nodes: state.nodes
+                            .filter(node => {
+                                return !action.mergeSpecs.some(spec => spec.purgedNodeIds.includes(node.id))
+                            })
+                            .map(node => {
+                                const spec = action.mergeSpecs.find(spec => spec.survivingNodeId === node.id);
+                                if (spec) {
+                                    let mergedProperties = node.properties;
+                                    for (const purgedNodeId of spec.purgedNodeIds) {
+                                        const purgedNode = state.nodes.find(node => node.id === purgedNodeId);
+                                        mergedProperties = { ...mergedProperties,
+                                            ...purgedNode.properties
+                                        };
+                                    }
+                                    return {
+                                        ...node,
+                                        properties: mergedProperties,
+                                        position: spec.position
+                                    }
+                                } else {
+                                    return node
+                                }
+                            }),
+                        relationships: state.relationships
+                            .map(relationship => {
+                                return {
+                                    ...relationship,
+                                    fromId: translateNodeId(relationship.fromId),
+                                    toId: translateNodeId(relationship.toId),
+                                }
+                            })
+                    }
+                }
+
+            case 'RENAME_PROPERTY':
+                {
+                    return {
+                        style: state.style,
+                        nodes: state.nodes.map((node) => nodeSelected(action.selection, node.id) ? renameProperty(node, action.oldPropertyKey, action.newPropertyKey) : node),
+                        relationships: state.relationships.map((relationship) => relationshipSelected(action.selection, relationship.id) ? renameProperty(relationship, action.oldPropertyKey, action.newPropertyKey) : relationship)
+                    }
+                }
+
+            case 'SET_PROPERTY':
+                {
+                    return {
+                        style: state.style,
+                        nodes: state.nodes.map((node) => nodeSelected(action.selection, node.id) ? setProperty(node, action.key, action.value) : node),
+                        relationships: state.relationships.map((relationship) => relationshipSelected(action.selection, relationship.id) ? setProperty(relationship, action.key, action.value) : relationship)
+                    }
+                }
+
+            case 'SET_PROPERTY_VALUES':
+                {
+                    return {
+                        style: state.style,
+                        nodes: state.nodes.map((node) => action.nodePropertyValues.hasOwnProperty(node.id) ? setProperty(node, action.key, action.nodePropertyValues[node.id]) : node),
+                        relationships: state.relationships
+                    }
+                }
+
+            case 'SET_ARROWS_PROPERTY':
+                {
+                    return {
+                        style: state.style,
+                        nodes: state.nodes.map((node) =>
+                            nodeStyleAttributes.includes(action.key) && nodeSelected(action.selection, node.id) ?
+                            setArrowsProperty(node, action.key, action.value) :
+                            node),
+                        relationships: state.relationships.map((relationship) =>
+                            relationshipStyleAttributes.includes(action.key) && relationshipSelected(action.selection, relationship.id) ?
+                            setArrowsProperty(relationship, action.key, action.value) :
+                            relationship)
+                    }
+                }
+
+            case 'REMOVE_PROPERTY':
+                {
+                    return {
+                        style: state.style,
+                        nodes: state.nodes.map((node) => nodeSelected(action.selection, node.id) ? removeProperty(node, action.key) : node),
+                        relationships: state.relationships.map((relationship) => relationshipSelected(action.selection, relationship.id) ? removeProperty(relationship, action.key) : relationship)
+                    }
+                }
+
+            case 'REMOVE_ARROWS_PROPERTY':
+                {
+                    return {
+                        style: state.style,
+                        nodes: state.nodes.map((node) => nodeSelected(action.selection, node.id) ? removeArrowsProperty(node, action.key) : node),
+                        relationships: state.relationships.map((relationship) => relationshipSelected(action.selection, relationship.id) ? removeArrowsProperty(relationship, action.key) : relationship)
+                    }
+                }
+
+            case 'SET_GRAPH_STYLE':
+                {
+                    const graphStyle = { ...state.style
+                    };
+                    graphStyle[action.key] = action.value;
+                    return {
+                        style: graphStyle,
+                        nodes: state.nodes,
+                        relationships: state.relationships
+                    }
+                }
+
+            case 'SET_GRAPH_STYLES':
+                {
+                    const graphStyle = { ...state.style
+                    };
+                    for (const [key, value] of Object.entries(action.style)) {
+                        graphStyle[key] = value;
+                    }
+                    return {
+                        style: graphStyle,
+                        nodes: state.nodes,
+                        relationships: state.relationships
+                    }
+                }
+
+            case 'MOVE_NODES':
+            case 'MOVE_NODES_END_DRAG':
+                const nodeIdToNode = {};
+                let clean = true;
+                state.nodes.forEach((node) => {
+                    nodeIdToNode[node.id] = node;
+                });
+                action.nodePositions.forEach((nodePosition) => {
+                    if (nodeIdToNode[nodePosition.nodeId]) {
+                        const oldNode = nodeIdToNode[nodePosition.nodeId];
+                        clean &= oldNode.position.isEqual(nodePosition.position);
+                        nodeIdToNode[nodePosition.nodeId] = moveTo(oldNode, nodePosition.position);
+                    }
+                });
+
+                if (clean) return state
+
+                return {
+                    style: state.style,
+                    nodes: Object.values(nodeIdToNode),
+                    relationships: state.relationships
+                }
+
+            case 'SET_RELATIONSHIP_TYPE':
+                return {
+                    style: state.style,
+                    nodes: state.nodes,
+                    relationships: state.relationships.map(relationship => relationshipSelected(action.selection, relationship.id) ? setType(relationship, action.relationshipType) : relationship)
+                }
+
+            case 'DUPLICATE_NODES_AND_RELATIONSHIPS':
+                {
+                    const newNodes = state.nodes.slice();
+                    Object.keys(action.nodeIdMap).forEach(newNodeId => {
+                        const spec = action.nodeIdMap[newNodeId];
+                        const oldNode = state.nodes.find(n => idsMatch(n.id, spec.oldNodeId));
+                        const newNode = {
+                            id: newNodeId,
+                            position: spec.position,
+                            caption: oldNode.caption,
+                            style: { ...oldNode.style
+                            },
+                            labels: [...oldNode.labels],
+                            properties: { ...oldNode.properties
+                            }
+                        };
+                        newNodes.push(newNode);
+                    });
+
+                    const newRelationships = state.relationships.slice();
+                    Object.keys(action.relationshipIdMap).forEach(newRelationshipId => {
+                        const spec = action.relationshipIdMap[newRelationshipId];
+                        const oldRelationship = state.relationships.find(r => idsMatch(r.id, spec.oldRelationshipId));
+                        const newRelationship = {
+                            id: newRelationshipId,
+                            type: oldRelationship.type,
+                            fromId: spec.fromId,
+                            toId: spec.toId,
+                            style: { ...oldRelationship.style
+                            },
+                            properties: { ...oldRelationship.properties
+                            }
+                        };
+                        newRelationships.push(newRelationship);
+                    });
+
+                    return {
+                        style: state.style,
+                        nodes: newNodes,
+                        relationships: newRelationships
+                    }
+                }
+
+            case 'IMPORT_NODES_AND_RELATIONSHIPS':
+                {
+                    const newNodes = [...state.nodes, ...action.nodes];
+                    const newRelationships = [...state.relationships, ...action.relationships];
+
+                    return {
+                        style: state.style,
+                        nodes: newNodes,
+                        relationships: newRelationships
+                    }
+                }
+
+            case 'DELETE_NODES_AND_RELATIONSHIPS':
+                return {
+                    style: state.style,
+                    nodes: state.nodes.filter(node => !action.nodeIdMap[node.id]),
+                    relationships: state.relationships.filter(relationship => !action.relationshipIdMap[relationship.id])
+                }
+
+            case 'REVERSE_RELATIONSHIPS':
+                return {
+                    ...state,
+                    relationships: state.relationships.map(relationship => relationshipSelected(action.selection, relationship.id) ? reverse(relationship) : relationship)
+                }
+
+            case 'INLINE_RELATIONSHIPS':
+                return {
+                    ...state,
+                    nodes: state.nodes
+                        .filter(node => !action.relationshipSpecs.some(spec => spec.removeNodeId === node.id))
+                        .map(node => {
+                            const spec = action.relationshipSpecs.find(spec => spec.addPropertiesNodeId === node.id);
+                            if (spec) {
+                                let augmentedNode = node;
+                                for (const label of spec.labels) {
+                                    augmentedNode = addLabel(augmentedNode, label);
+                                }
+                                for (const [key, value] of Object.entries(spec.properties)) {
+                                    augmentedNode = setProperty(augmentedNode, key, value);
+                                }
+                                return augmentedNode
+                            } else {
+                                return node
+                            }
+                        }),
+                    relationships: state.relationships
+                        .filter(relationship => !action.relationshipSpecs.some(spec =>
+                            spec.removeNodeId === relationship.fromId ||
+                            spec.removeNodeId === relationship.toId
+                        ))
+                }
+
+            case 'GETTING_GRAPH_SUCCEEDED':
+                return action.storedGraph
+
+            default:
+                return state
+        }
+    };
+
+    var graph$1 = undoable(graph, {
+        filter: action => action.category === 'GRAPH',
+        groupBy: lib.groupByActionTypes('MOVE_NODES')
+    });
+
+    const allEntitiesSelected = (oldEntities, newEntities) => {
+        return newEntities.every(newEntity =>
+            oldEntities.some(oldEntity =>
+                entitiesMatch(oldEntity, newEntity)
+            )
+        )
+    };
+
+    const entitiesMatch = (entity1, entity2) => (
+        entity1.entityType === entity2.entityType &&
+        entity1.id === entity2.id
+    );
+
+    const toggleEntities = (oldEntities, newEntities, mode) => {
+        if (mode === 'at-least' && allEntitiesSelected(oldEntities, newEntities)) {
+            return oldEntities
+        }
+
+        switch (mode) {
+            case 'xor':
+                return oldEntities
+                    .filter(oldEntity => {
+                        return !newEntities.some(newEntity =>
+                            entitiesMatch(oldEntity, newEntity)
+                        )
+                    }).concat(newEntities.filter(newEntity => {
+                        return !oldEntities.some(oldEntity =>
+                            entitiesMatch(oldEntity, newEntity)
+                        )
+                    }))
+            case 'or':
+                return oldEntities
+                    .concat(newEntities.filter(newEntity => {
+                        return !oldEntities.some(oldEntity =>
+                            entitiesMatch(oldEntity, newEntity)
+                        )
+                    }))
+
+            case 'replace':
+            case 'at-least':
+                return newEntities
+        }
+    };
+
+    function selection(state = {
+        editing: undefined,
+        entities: []
+    }, action) {
+        switch (action.type) {
+            case 'ACTIVATE_EDITING':
+                return {
+                    editing: action.editing,
+                    entities: toggleEntities(state.entities, [action.editing], 'at-least')
+                }
+
+            case 'DEACTIVATE_EDITING':
+                return {
+                    editing: undefined,
+                    entities: state.entities
+                }
+
+            case 'TOGGLE_SELECTION':
+                const entities = toggleEntities(state.entities, action.entities, action.mode);
+                let editing = undefined;
+                if (state.editing && entities.some(selectedEntity => entitiesMatch(selectedEntity, state.editing))) {
+                    editing = state.editing;
+                }
+                return {
+                    editing,
+                    entities
+                }
+
+            case 'CLEAR_SELECTION':
+            case 'DELETE_NODES_AND_RELATIONSHIPS':
+            case lib.ActionTypes.UNDO:
+            case lib.ActionTypes.REDO:
+                return {
+                    editing: undefined,
+                    entities: []
+                }
+            case 'CREATE_NODE':
+                {
+                    return {
+                        editing: undefined,
+                        entities: [{
+                            entityType: 'node',
+                            id: action.newNodeId
+                        }]
+                    }
+                }
+            case 'CREATE_NODES_AND_RELATIONSHIPS':
+                {
+                    return {
+                        editing: undefined,
+                        entities: action.targetNodeIds.map(targetNodeId => ({
+                            entityType: 'node',
+                            id: targetNodeId
+                        }))
+                    }
+                }
+            case 'CONNECT_NODES':
+                {
+                    return {
+                        editing: undefined,
+                        entities: action.newRelationshipIds.map(newRelationshipId => ({
+                            entityType: 'relationship',
+                            id: newRelationshipId
+                        }))
+                    }
+                }
+            case 'DUPLICATE_NODES_AND_RELATIONSHIPS':
+                return {
+                    editing: undefined,
+                    entities: [
+                        ...Object.keys(action.nodeIdMap).map(nodeId => ({
+                            entityType: 'node',
+                            id: nodeId
+                        })),
+                        ...Object.keys(action.relationshipIdMap).map(relId => ({
+                            entityType: 'relationship',
+                            id: relId
+                        }))
+                    ]
+                }
+            case 'MERGE_NODES':
+                return {
+                    editing: undefined,
+                    entities: action.mergeSpecs.map(spec => ({
+                        entityType: 'node',
+                        id: spec.survivingNodeId
+                    }))
+                }
+            case 'INLINE_RELATIONSHIPS':
+                return {
+                    editing: undefined,
+                    entities: action.relationshipSpecs.map(spec => ({
+                        entityType: 'node',
+                        id: spec.addPropertiesNodeId
+                    }))
+                }
+            case 'IMPORT_NODES_AND_RELATIONSHIPS':
+                return {
+                    editing: undefined,
+                    entities: [
+                        ...action.nodes.map(node => ({
+                            entityType: 'node',
+                            id: node.id
+                        })),
+                        ...action.relationships.map(relationship => ({
+                            entityType: 'relationship',
+                            id: relationship.id
+                        }))
+                    ]
+                }
+            default:
+                return state
+        }
+    }
+
+    const mouse = (state = {
+        dragType: 'NONE'
+    }, action) => {
+        switch (action.type) {
+            case 'MOUSE_DOWN_ON_HANDLE':
+                {
+                    return {
+                        dragType: 'HANDLE',
+                        corner: action.corner,
+                        mousePosition: action.canvasPosition,
+                        initialMousePosition: action.canvasPosition,
+                        initialNodePositions: action.nodePositions
+                    }
+                }
+
+            case 'LOCK_HANDLE_DRAG_MODE':
+                {
+                    return {
+                        ...state,
+                        dragType: action.dragType
+                    }
+                }
+
+            case 'MOUSE_DOWN_ON_NODE':
+                {
+                    const mouseToNodeVector = action.node.position.vectorFrom(action.graphPosition);
+                    return {
+                        dragType: 'NODE',
+                        node: action.node,
+                        mousePosition: action.position,
+                        mouseToNodeVector
+                    }
+                }
+
+            case 'MOUSE_DOWN_ON_NODE_RING':
+                {
+                    return {
+                        dragType: 'NODE_RING',
+                        node: action.node,
+                        mousePosition: action.position
+                    }
+                }
+
+            case 'MOUSE_DOWN_ON_CANVAS':
+                {
+                    return {
+                        dragType: 'CANVAS',
+                        dragged: false,
+                        mousePosition: action.canvasPosition,
+                        mouseDownPosition: action.graphPosition
+                    }
+                }
+
+            case 'MOVE_NODES':
+                const currentPosition = action.newMousePosition || state.mousePosition;
+                return {
+                    ...state,
+                    dragged: true,
+                    mousePosition: currentPosition
+                }
+
+            case 'RING_DRAGGED':
+                return {
+                    ...state,
+                    dragged: true,
+                    mousePosition: action.newMousePosition
+                }
+
+            case 'SET_MARQUEE':
+                return {
+                    ...state,
+                    dragType: 'MARQUEE',
+                    dragged: true,
+                    mousePosition: action.newMousePosition
+                }
+
+            case 'END_DRAG':
+                return {
+                    dragType: 'NONE'
+                }
+
+            default:
+                return state
+        }
+    };
+
+    class Guides {
+        constructor(guidelines = [], naturalPosition, naturalRadius) {
+            this.guidelines = guidelines;
+            this.naturalPosition = naturalPosition;
+            this.naturalRadius = naturalRadius;
+        }
+    }
+
+    function guides(state = new Guides(), action) {
+        switch (action.type) {
+            case 'MOVE_NODES':
+            case 'RING_DRAGGED':
+                return action.guides
+
+            case 'END_DRAG':
+                return new Guides()
+
+            default:
+                return state
+        }
+    }
+
+    class Size {
+        constructor(width, height) {
+            this.width = width;
+            this.height = height;
+        }
+
+        relative(dWidth, dHeight) {
+            return new Size(this.width + dWidth, this.height + dHeight)
+        }
+    }
+
+    const applicationLayout = (state = {
+        windowSize: new Size(window.innerWidth, window.innerHeight),
+        inspectorVisible: true,
+        styleMode: 'theme',
+        betaFeaturesEnabled: false,
+        layers: []
+    }, action) => {
+        switch (action.type) {
+            case 'WINDOW_RESIZED':
+                return {
+                    ...state,
+                    windowSize: new Size(action.width, action.height)
+                }
+
+            case 'TOGGLE_INSPECTOR':
+                return {
+                    ...state,
+                    inspectorVisible: !state.inspectorVisible
+                }
+
+            case 'STYLE_THEME':
+                return {
+                    ...state,
+                    styleMode: 'theme'
+                }
+
+            case 'STYLE_CUSTOMIZE':
+                return {
+                    ...state,
+                    styleMode: 'customize'
+                }
+
+            case 'SET_BETA_FEATURES_ENABLED':
+                return {
+                    ...state,
+                    layers: [],
+                    betaFeaturesEnabled: action.enabled
+                }
+            case 'SET_PERSIST_CLUSTERS':
+                const clusterLayer = state.layers.find(layer => layer.name === 'gangs');
+                if (clusterLayer && clusterLayer.persist !== action.enabled) {
+                    const otherLayers = state.layers.filter(layer => layer.name !== 'gangs');
+                    return {
+                        ...state,
+                        layers: otherLayers.concat([{
+                            ...clusterLayer,
+                            persist: action.enabled
+                        }])
+                    }
+                } else {
+                    return state
+                }
+            default:
+                return state
+        }
+    };
+
+    class ViewTransformation {
+        constructor(scale = 1, offset = new Vector(0, 0)) {
+            this.scale = scale;
+            this.offset = offset;
+        }
+
+        zoom(scale) {
+            return new ViewTransformastion(scale, this.offset)
+        }
+
+        scroll(vector) {
+            return new ViewTransformation(this.scale, this.offset.plus(vector))
+        }
+
+        transform(point) {
+            return point.scale(this.scale).translate(this.offset)
+        }
+
+        inverse(point) {
+            return point.translate(this.offset.invert()).scale(1 / this.scale)
+        }
+
+        adjust(scale, panX, panY) {
+            return new ViewTransformation(scale, new Vector(panX, panY))
+        }
+
+        asCSSTransform() {
+            return `${this.offset.asCSSTransform()} scale(${this.scale})`
+        }
+    }
+
+    const viewTransformation = (state = new ViewTransformation(), action) => {
+        switch (action.type) {
+            case 'SCROLL':
+                return state.scroll(action.vector)
+
+            case 'ADJUST_VIEWPORT':
+                return state.adjust(action.scale, action.panX, action.panY)
+            default:
+                return state
+        }
+    };
+
+    function dragging(state = {
+        sourceNodeId: null,
+        secondarySourceNodeIds: [],
+        targetNodeIds: [],
+        newNodePosition: null
+    }, action) {
+        switch (action.type) {
+            case 'ACTIVATE_RING':
+                return {
+                    sourceNodeId: action.sourceNodeId,
+                    secondarySourceNodeIds: [],
+                    nodeType: action.nodeType,
+                    targetNodeIds: [],
+                    newNodePosition: null
+                }
+            case 'RING_DRAGGED':
+                return {
+                    sourceNodeId: action.sourceNodeId,
+                    secondarySourceNodeIds: action.secondarySourceNodeIds,
+                    targetNodeIds: action.targetNodeIds,
+                    newNodePosition: action.position
+                }
+            case 'DEACTIVATE_RING':
+            case 'END_DRAG':
+                return {
+                    sourceNodeId: null,
+                    secondarySourceNodeIds: [],
+                    targetNodeIds: [],
+                    newNodePosition: null
+                }
+            default:
+                return state
+        }
+    }
+
+    function selectionMarquee(state = null, action) {
+        switch (action.type) {
+            case 'SET_MARQUEE':
+                return action.marquee
+            case 'END_DRAG':
+                return null
+            default:
+                return state
+        }
+    }
+
+    const gestures = combineReducers({
+        dragToCreate: dragging,
+        selectionMarquee
+    });
+
+    function actionMemos(state = {}, action) {
+        switch (action.type) {
+            case 'DUPLICATE_NODES_AND_RELATIONSHIPS':
+                return {
+                    ...state,
+                    lastDuplicateAction: action
+                }
+
+            default:
+                return state
+        }
+    }
+
+    const initialState$1 = [];
+
+    var gangs = (state = initialState$1, action) => {
+        switch (action.type) {
+            case 'CREATE_CLUSTER':
+                return state.concat([{
+                    id: action.nodeId,
+                    position: action.position,
+                    caption: action.caption,
+                    style: action.style,
+                    properties: {},
+                    type: action.nodeType,
+                    members: action.members,
+                    initialPosition: action.initialPosition
+                }])
+            case 'LOAD_CLUSTERS':
+                return action.clusters.map(cluster => ({
+                    id: cluster.id,
+                    position: cluster.position,
+                    caption: cluster.caption,
+                    properties: {},
+                    type: cluster.type || cluster,
+                    members: cluster.members,
+                    initialPosition: cluster.initialPosition,
+                    style: cluster.style || {
+                        'radius': 50,
+                        'node-color': '#FFF',
+                        'border-width': '2',
+                        'caption-color': '#000'
+                    }
+                }))
+            case 'REMOVE_CLUSTER':
+                return state.filter(gang => gang.id !== action.nodeId)
+
+            case 'MOVE_NODES':
+                const nodeIdToNode = {};
+                state.forEach((node) => {
+                    nodeIdToNode[node.id] = node;
+                });
+
+                action.nodePositions.forEach((nodePosition) => {
+                    if (nodeIdToNode[nodePosition.nodeId]) {
+                        nodeIdToNode[nodePosition.nodeId] = moveTo(nodeIdToNode[nodePosition.nodeId], nodePosition.position);
+                    }
+                });
+
+                return [...Object.values(nodeIdToNode)]
+            default:
+                return state
+        }
+    };
+
+    const initialState = {
+        "storage.GOOGLE_DRIVE": true,
+        "storage.LOCAL_STORAGE": true,
+        "storage.DATABASE": false,
+    };
+
+    var features = (state = initialState, action) => initialState;
+
+    var googleDrive = (state = {}, action) => {
+        switch (action.type) {
+            case 'GOOGLE_DRIVE_SIGN_IN_STATUS':
+                return {
+                    apiInitialized: true,
+                    signedIn: action.signedIn
+                }
+            default:
+                return state
+        }
+    };
+
+    function cachedImages(state = {}, action) {
+        if (action.type === 'IMAGE_EVENT') {
+            return {
+                ...state,
+                [action.imageUrl]: action.cachedImage
+            }
+        }
+
+        return state
+    }
+
+    const arrowsAppReducers = combineReducers({
+        // recentStorage,
+        // storage,
+        diagramName,
+        graph: graph$1,
+        selection,
+        mouse,
+        gestures,
+        guides,
+        applicationLayout,
+        viewTransformation,
+        actionMemos,
+        // applicationDialogs,
+        gangs,
+        features,
+        googleDrive,
+        cachedImages
+    });
+
+    class StateController {
+        constructor() {
+            this.store = createStore(
+                arrowsAppReducers,
+            );
+
+            this.instance = null;
+        }
+
+        getStore() {
+            return this.store
+        }
+
+        // 单例模式
+        static getInstance() {
+            if (this.instance) {
+                return this.instance
+            }
+
+            return this.instance = new StateController()
+        }
+    }
+
     function merge(target, source) {
         Object.keys(source).forEach((property) => {
             target[property] = source[property];
@@ -4245,13 +6562,16 @@
                 editing: undefined,
                 entities: []
             };
-
             this.options = {
                 width: '100%',
                 height: '100%'
             };
 
+            // 合并配置
             merge(this.options, options);
+
+            this.stateStore = StateController.getInstance().store;
+
 
             this.initPointClass(graph);
             // 适配二倍屏

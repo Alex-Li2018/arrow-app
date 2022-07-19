@@ -2,6 +2,7 @@ import { getVisualGraph } from './selectors/index'
 import { Point } from './model/Point'
 import CanvasAdaptor from "./graphics/utils/CanvasAdaptor";
 import { calculateViewportTranslation } from './middlewares/viewportMiddleware'
+import StateController from './stateController/index';
 
 function merge(target, source) {
     Object.keys(source).forEach((property) => {
@@ -33,13 +34,16 @@ export default class ArrowApp {
             editing: undefined,
             entities: []
         }
-
         this.options = {
             width: '100%',
             height: '100%'
         }
 
+        // 合并配置
         merge(this.options, options)
+
+        this.stateStore = StateController.getInstance().store
+
 
         this.initPointClass(graph)
         // 适配二倍屏
