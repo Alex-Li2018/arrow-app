@@ -10,7 +10,7 @@ import {
 } from "../selectors"
 import {
     ActionCreators as UndoActionCreators
-} from "redux-undo"
+} from "../library/redux-undo.js"
 import {
     loadGraphFromLocalStorage,
     saveGraphToLocalStorage

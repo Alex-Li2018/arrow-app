@@ -387,12 +387,12 @@
         styleAttributeGroups.flatMap(group => group.attributes)
         .map(attribute => [attribute.key, attribute]));
 
-    styleAttributeGroups
+    const nodeStyleAttributes = styleAttributeGroups
         .filter(group => group.entityTypes.includes('node'))
         .flatMap(group => group.attributes)
         .map(attribute => attribute.key);
 
-    styleAttributeGroups
+    const relationshipStyleAttributes = styleAttributeGroups
         .filter(group => group.entityTypes.includes('relationship'))
         .flatMap(group => group.attributes)
         .map(attribute => attribute.key);
@@ -481,6 +481,18 @@
         },
     };
 
+    const completeWithDefaults = (style) => {
+        const completeStyle = {};
+        Object.keys(styleAttributes).forEach(key => {
+            if (style.hasOwnProperty(key)) {
+                completeStyle[key] = style[key];
+            } else {
+                completeStyle[key] = styleAttributes[key].defaultValue;
+            }
+        });
+        return completeStyle
+    };
+
     const validate = (styleKey, value) => {
         const styleAttribute = styleAttributes[styleKey];
         const styleType = styleTypes[styleAttribute.type];
@@ -516,8 +528,10 @@
         return styleAttribute.defaultValue
     };
 
+    // 获取图谱的样式
     const graphStyleSelector = graph => graph.style || {};
 
+    // 如果自身有style用自身的没有就用图谱的公用样式
     const specificOrGeneral = (styleKey, entity, graphStyle) => {
         if (entity.style && entity.style.hasOwnProperty(styleKey)) {
             return entity.style[styleKey]
@@ -1143,156 +1157,73 @@
         }
     }
 
-    class PropertiesBox {
-        constructor(properties, editing, style, textMeasurement) {
-            this.editing = editing;
-            this.font = {
-                fontWeight: style('property-font-weight'),
-                fontSize: style('property-font-size'),
-                fontFamily: style('font-family')
-            };
-            textMeasurement.font = this.font;
-            this.fontColor = style('property-color');
-            this.selectionColor = adaptForBackground(this.editing ? selectionHandle : selectionBorder, style);
-            this.lineHeight = this.font.fontSize * 1.2;
-            this.alignment = style('property-alignment');
-            this.properties = Object.keys(properties).map(key => ({
-                key,
-                value: properties[key]
-            }));
-            this.spaceWidth = textMeasurement.measureText(' ').width;
-            this.colonWidth = textMeasurement.measureText(':').width;
-            const maxWidth = (selector) => {
-                if (this.properties.length === 0) return 0
-                return Math.max(...this.properties.map(property => {
-                    return textMeasurement.measureText(selector(property)).width
-                }))
-            };
-
-            switch (this.editing ? 'colon' : this.alignment) {
-                case 'colon':
-                    this.keysWidth = maxWidth(property => property.key) + this.spaceWidth;
-                    this.valuesWidth = maxWidth(property => property.value) + this.spaceWidth;
-                    this.boxWidth = this.keysWidth + this.colonWidth + this.spaceWidth + this.valuesWidth;
-                    break
-
-                case 'center':
-                    this.boxWidth = maxWidth(property => property.key + ': ' + property.value);
-                    break
-            }
-            this.boxHeight = this.lineHeight * this.properties.length;
+    const moveTo = (node, newPosition) => {
+        return {
+            ...node,
+            position: newPosition
         }
+    };
 
-        get isEmpty() {
-            return this.properties.length === 0
+    const addLabel = (node, label) => {
+        const labels = node.labels.includes(label) ? node.labels : [...node.labels, label];
+        return {
+            ...node,
+            labels: labels
         }
+    };
 
-        draw(ctx) {
-            ctx.save();
-
-            ctx.font = this.font;
-            ctx.fillStyle = this.fontColor;
-            ctx.textBaseline = 'middle';
-
-            this.properties.forEach((property, index) => {
-                const yPosition = (index + 0.5) * this.lineHeight;
-                if (this.editing) {
-                    drawTextLine(ctx, ':', new Point(this.keysWidth + this.colonWidth, yPosition), 'end');
-                } else {
-                    switch (this.alignment) {
-                        case 'colon':
-                            drawTextLine(ctx, property.key + ':', new Point(this.keysWidth + this.colonWidth, yPosition), 'end');
-                            drawTextLine(ctx, property.value, new Point(this.keysWidth + this.colonWidth + this.spaceWidth, yPosition), 'start');
-                            break
-
-                        case 'center':
-                            drawTextLine(ctx, property.key + ': ' + property.value, new Point(this.boxWidth / 2, yPosition), 'center');
-                            break
-                    }
-                }
-            });
-
-            ctx.restore();
+    const renameLabel = (node, oldLabel, newLabel) => {
+        const labels = [...node.labels];
+        const index = labels.indexOf(oldLabel);
+        if (index > -1) {
+            labels[index] = newLabel;
         }
-
-        drawBackground(ctx) {
-            const boundingBox = this.boundingBox();
-            ctx.fillStyle = 'white';
-            ctx.rect(boundingBox.left, boundingBox.top, boundingBox.width, boundingBox.height, 0, true, false);
+        return {
+            ...node,
+            labels: labels
         }
+    };
 
-        drawSelectionIndicator(ctx) {
-            const indicatorWidth = 10;
-            const boundingBox = this.boundingBox();
-
-            ctx.save();
-
-            ctx.strokeStyle = this.selectionColor;
-            ctx.lineWidth = indicatorWidth;
-            ctx.lineJoin = 'round';
-            ctx.rect(boundingBox.left, boundingBox.top, boundingBox.width, boundingBox.height, 0, false, true);
-
-            ctx.restore();
+    const removeLabel = (node, label) => {
+        const labels = [...node.labels];
+        const index = labels.indexOf(label);
+        if (index > -1) {
+            labels.splice(index, 1);
         }
-
-        boundingBox() {
-            return new BoundingBox(0, this.boxWidth, 0, this.boxHeight)
+        return {
+            ...node,
+            labels: labels
         }
-    }
+    };
 
-    class PropertiesOutside {
-        constructor(properties, orientation, editing, style, textMeasurement) {
-            this.propertiesBox = new PropertiesBox(properties, editing, style, textMeasurement);
-            this.width = this.propertiesBox.boxWidth;
-            this.height = this.propertiesBox.boxHeight;
-            const horizontalPosition = (() => {
-                switch (orientation.horizontal) {
-                    case 'start':
-                        return 0
-                    case 'center':
-                        return -this.width / 2
-                    case 'end':
-                        return -this.width
-                }
-            })();
-            this.boxPosition = new Point(horizontalPosition, 0);
+    const setCaption = (node, caption) => {
+        return {
+            ...node,
+            caption
         }
+    };
 
-        get type() {
-            return 'PROPERTIES'
+    const setType = (relationship, type) => {
+        return {
+            id: relationship.id,
+            type,
+            style: relationship.style,
+            properties: relationship.properties,
+            fromId: relationship.fromId,
+            toId: relationship.toId
         }
+    };
 
-        get isEmpty() {
-            return this.propertiesBox.isEmpty
+    const reverse = relationship => {
+        return {
+            id: relationship.id,
+            type: relationship.type,
+            style: relationship.style,
+            properties: relationship.properties,
+            toId: relationship.fromId,
+            fromId: relationship.toId
         }
-
-        draw(ctx) {
-            if (!this.isEmpty) {
-                ctx.save();
-
-                ctx.translate(...this.boxPosition.xy);
-                this.propertiesBox.drawBackground(ctx);
-                this.propertiesBox.draw(ctx);
-
-                ctx.restore();
-            }
-        }
-
-        drawSelectionIndicator(ctx) {
-            ctx.save();
-            ctx.translate(...this.boxPosition.xy);
-            this.propertiesBox.drawSelectionIndicator(ctx);
-            ctx.restore();
-        }
-
-        boundingBox() {
-            return this.propertiesBox.boundingBox().translate(this.boxPosition.vectorFromOrigin())
-        }
-
-        distanceFrom(point) {
-            return this.boundingBox().contains(point) ? 0 : Infinity
-        }
-    }
+    };
 
     const otherNodeId = (relationship, nodeId) => {
         if (relationship.fromId === nodeId) {
@@ -1302,6 +1233,100 @@
             return relationship.fromId
         }
         return undefined
+    };
+
+    const renameProperty = (entity, oldPropertyKey, newPropertyKey) => {
+        const properties = {};
+        Object.keys(entity.properties).forEach((key) => {
+            if (key === oldPropertyKey) {
+                properties[newPropertyKey] = entity.properties[oldPropertyKey];
+            } else {
+                properties[key] = entity.properties[key];
+            }
+        });
+        return {
+            ...entity,
+            properties
+        }
+    };
+
+    const setProperty = (entity, key, value) => {
+        const properties = { ...entity.properties
+        };
+        properties[key] = value;
+        return {
+            ...entity,
+            properties
+        }
+    };
+
+    const setArrowsProperty = (entity, key, value) => {
+        const newEntity = { ...entity
+        };
+
+        if (!newEntity.style) {
+            newEntity.style = {};
+        }
+
+        newEntity.style[key] = value;
+        Object.defineProperty(newEntity, key, {
+            get: function() {
+                return this.style[key]
+            }
+        });
+
+        return newEntity
+    };
+
+    const removeProperty = (entity, keyToRemove) => {
+        const properties = {};
+        Object.keys(entity.properties).forEach((key) => {
+            if (key !== keyToRemove) {
+                properties[key] = entity.properties[key];
+            }
+        });
+        return {
+            ...entity,
+            properties
+        }
+    };
+
+    const removeArrowsProperty = (entity, keyToRemove) => {
+        const style = { ...entity.style
+        };
+        delete style[keyToRemove];
+        return {
+            ...entity,
+            style
+        }
+    };
+
+    function idsMatch(a, b) {
+        return a === b
+    }
+
+    function nextAvailableId(entities, prefix = 'n') {
+        const currentIds = entities.map((entity) => entity.id)
+            .filter((id) => new RegExp(`^${prefix}[0-9]+$`).test(id))
+            .map((id) => parseInt(id.substring(1)))
+            .sort((x, y) => x - y);
+
+        return prefix + (currentIds.length > 0 ? currentIds.pop() + 1 : 0)
+    }
+
+    const emptyGraph = () => {
+        return {
+            nodes: [{
+                id: nextAvailableId([]),
+                position: new Point(0, 0),
+                caption: '',
+                style: {},
+                labels: [],
+                properties: {}
+            }],
+            relationships: [],
+            style: completeWithDefaults({})
+        }
     };
 
     const neighbourPositions = (node, graph) => {
@@ -1391,42 +1416,6 @@
             const top = this.boxPosition.y;
 
             return new BoundingBox(left, left + this.width, top, top + this.height)
-        }
-
-        distanceFrom(point) {
-            return this.boundingBox().contains(point) ? 0 : Infinity
-        }
-    }
-
-    class NodePropertiesInside {
-        constructor(properties, editing, style, textMeasurement) {
-            this.propertiesBox = new PropertiesBox(properties, editing, style, textMeasurement);
-            this.width = this.propertiesBox.boxWidth;
-            this.height = this.propertiesBox.boxHeight;
-            this.boxPosition = new Point(-this.width / 2, 0);
-        }
-
-        get type() {
-            return 'PROPERTIES'
-        }
-
-        get isEmpty() {
-            return this.propertiesBox.isEmpty
-        }
-
-        draw(ctx) {
-            if (!this.isEmpty) {
-                ctx.save();
-
-                ctx.translate(...this.boxPosition.xy);
-                this.propertiesBox.draw(ctx);
-
-                ctx.restore();
-            }
-        }
-
-        boundingBox() {
-            return this.propertiesBox.boundingBox().translate(this.boxPosition.vectorFromOrigin())
         }
 
         distanceFrom(point) {
@@ -2052,6 +2041,7 @@
                     this.outsideOrientation = orientationFromName(outsidePosition);
             }
 
+            // 是否有图片
             if (hasIcon) {
                 switch (iconPosition) {
                     case 'inside':
@@ -2099,18 +2089,18 @@
                 }
             }
 
-            if (hasProperties) {
-                switch (propertyPosition) {
-                    case 'inside':
-                        this.insideComponents.push(this.properties = new NodePropertiesInside(
-                            node.properties, editing, style, measureTextContext));
-                        break
+            // if (hasProperties) {
+            //     switch (propertyPosition) {
+            //         case 'inside':
+            //             this.insideComponents.push(this.properties = new NodePropertiesInside(
+            //                 node.properties, editing, style, measureTextContext))
+            //             break
 
-                    default:
-                        this.outsideComponents.push(this.properties = new PropertiesOutside(
-                            node.properties, this.outsideOrientation, editing, style, measureTextContext));
-                }
-            }
+            //         default:
+            //             this.outsideComponents.push(this.properties = new PropertiesOutside(
+            //                 node.properties, this.outsideOrientation, editing, style, measureTextContext))
+            //     }
+            // }
 
             if (this.internalScaleFactor === undefined) {
                 this.internalVerticalOffset = -this.insideComponents.totalHeight() / 2;
@@ -2186,14 +2176,14 @@
             ctx.save();
             ctx.scale(this.internalScaleFactor);
             ctx.translate(0, this.internalVerticalOffset);
-
+            // 节点内部的组件
             this.insideComponents.draw(ctx);
 
             ctx.restore();
 
             ctx.save();
             ctx.translate(...this.outsideOffset.dxdy);
-
+            // 节点外部的组件
             this.outsideComponents.draw(ctx);
 
             ctx.restore();
@@ -2229,63 +2219,6 @@
         }
     }
 
-    const attachmentOptions = [{
-            name: 'top',
-            angle: -Math.PI / 2
-        },
-        {
-            name: 'right',
-            angle: 0
-        },
-        {
-            name: 'bottom',
-            angle: Math.PI / 2
-        },
-        {
-            name: 'left',
-            angle: Math.PI
-        }
-    ];
-
-    const relationshipArrowDimensions = (resolvedRelationship, graph, leftNode) => {
-        const style = styleKey => getStyleSelector(resolvedRelationship.relationship, styleKey, graph);
-        const startRadius = resolvedRelationship.from.radius + style('margin-start');
-        const endRadius = resolvedRelationship.to.radius + style('margin-end');
-        const arrowWidth = style('arrow-width');
-        const arrowColor = style('arrow-color');
-        const selectionColor = adaptForBackground(selectionBorder, style);
-
-        let hasArrowHead = false;
-        let headWidth = 0;
-        let headHeight = 0;
-        let chinHeight = 0;
-
-        const directionality = style('directionality');
-        if (directionality === 'directed') {
-            hasArrowHead = true;
-            headWidth = arrowWidth + 6 * Math.sqrt(arrowWidth);
-            headHeight = headWidth * 1.5;
-            chinHeight = headHeight / 10;
-        }
-
-        const separation = style('margin-peer');
-        const leftToRight = resolvedRelationship.from === leftNode;
-
-        return {
-            startRadius,
-            endRadius,
-            arrowWidth,
-            arrowColor,
-            selectionColor,
-            hasArrowHead,
-            headWidth,
-            headHeight,
-            chinHeight,
-            separation,
-            leftToRight
-        }
-    };
-
     class ResolvedRelationship {
         constructor(relationship, from, to, startAttachment, endAttachment, selected) {
             this.relationship = relationship;
@@ -2299,36 +2232,174 @@
         }
     }
 
-    // creates a polygon for an arrow head facing right, with its point at the origin.
-    function arrowHead(ctx, headHeight, chinHeight, headWidth, fill, stroke) {
-        ctx.polygon([{
-                x: chinHeight - headHeight,
-                y: 0
-            },
-            {
-                x: -headHeight,
-                y: headWidth / 2
-            },
-            {
-                x: 0,
-                y: 0
-            },
-            {
-                x: -headHeight,
-                y: -headWidth / 2
+    class VisualGraph {
+        constructor(graph, nodes, relationshipBundles) {
+            this.graph = graph;
+            this.nodes = nodes;
+            this.relationshipBundles = relationshipBundles;
+        }
+
+        get style() {
+            return this.graph.style
+        }
+
+        entityAtPoint(point) {
+            const node = this.nodeAtPoint(point);
+            if (node) return { ...node,
+                entityType: 'node'
             }
-        ], fill, stroke);
+
+            const nodeRing = this.nodeRingAtPoint(point);
+            if (nodeRing) return { ...nodeRing,
+                entityType: 'nodeRing'
+            }
+
+            const relationship = this.relationshipAtPoint(point);
+            if (relationship) return { ...relationship,
+                entityType: 'relationship'
+            }
+
+            return null
+        }
+
+        nodeAtPoint(point) {
+            return this.closestNode(point, (visualNode, distance) => {
+                return distance < visualNode.radius
+            })
+        }
+
+        nodeRingAtPoint(point) {
+            return this.closestNode(point, (visualNode, distance) => {
+                const nodeRadius = visualNode.radius;
+                return distance > nodeRadius && distance < nodeRadius + ringMargin
+            })
+        }
+
+        entitiesInBoundingBox(boundingBox) {
+            const nodes = this.graph.nodes.filter(node => boundingBox.contains(node.position))
+                .map(node => ({ ...node,
+                    entityType: 'node'
+                }));
+            const relationships = this.relationshipBundles.flatMap(bundle => bundle.routedRelationships)
+                .filter(routedRelationship => boundingBox.contains(routedRelationship.arrow.midPoint()))
+                .map(routedRelationship => routedRelationship.resolvedRelationship)
+                .map(relationship => ({ ...relationship,
+                    entityType: 'relationship'
+                }));
+
+            return [...nodes, ...relationships]
+        }
+
+        closestNode(point, hitTest) {
+            let closestDistance = Number.POSITIVE_INFINITY;
+            let closestNode = null;
+            this.graph.nodes.filter(node => node.status !== 'combined').forEach((node) => {
+                const visualNode = this.nodes[node.id];
+                const distance = visualNode.distanceFrom(point);
+                if (distance < closestDistance && hitTest(visualNode, distance)) {
+                    closestDistance = distance;
+                    closestNode = node;
+                }
+            });
+            return closestNode
+        }
+
+        relationshipAtPoint(point) {
+            return this.closestRelationship(point, (relationship, distance) => distance <= relationshipHitTolerance)
+        }
+
+        closestRelationship(point, hitTest) {
+            let minDistance = Number.POSITIVE_INFINITY;
+            let closestRelationship = null;
+            this.relationshipBundles.forEach(bundle => {
+                bundle.routedRelationships.forEach(routedRelationship => {
+                    const distance = routedRelationship.distanceFrom(point);
+                    if (distance < minDistance && hitTest(routedRelationship.resolvedRelationship, distance)) {
+                        minDistance = distance;
+                        closestRelationship = routedRelationship.resolvedRelationship;
+                    }
+                });
+            });
+
+            return closestRelationship
+        }
+
+        draw(ctx, displayOptions) {
+            ctx.save();
+            const viewTransformation = displayOptions.viewTransformation;
+            ctx.translate(viewTransformation.translateVector.dx, viewTransformation.translateVector.dy);
+            ctx.scale(viewTransformation.scale);
+            this.relationshipBundles.forEach(bundle => bundle.draw(ctx));
+            Object.values(this.nodes).forEach(visualNode => {
+                visualNode.draw(ctx);
+            });
+            ctx.restore();
+        }
+
+        boundingBox() {
+            const nodeBoxes = Object.values(this.nodes).map(node => node.boundingBox());
+            const relationshipBoxes = Object.values(this.relationshipBundles).map(bundle => bundle.boundingBox());
+            return combineBoundingBoxes([...nodeBoxes, ...relationshipBoxes])
+        }
     }
 
-    const perpendicular = (angle) => {
-        return normaliseAngle(angle + Math.PI / 2)
+    const nodeSelected = (selection, nodeId) => {
+        return selection.entities.some(entity =>
+            entity.entityType === 'node' && entity.id === nodeId
+        )
     };
 
-    const normaliseAngle = (angle) => {
-        let goodAngle = angle;
-        while (goodAngle < -Math.PI) goodAngle += 2 * Math.PI;
-        while (goodAngle > Math.PI) goodAngle -= 2 * Math.PI;
-        return goodAngle
+    const nodeEditing = (selection, nodeId) => {
+        return selection.editing &&
+            selection.editing.entityType === 'node' && selection.editing.id === nodeId
+    };
+
+    const relationshipSelected = (selection, relationshipId) => {
+        return selection.entities.some(entity =>
+            entity.entityType === 'relationship' && entity.id === relationshipId
+        )
+    };
+
+    const relationshipEditing = (selection, relationshipId) => {
+        return selection.editing &&
+            selection.editing.entityType === 'relationship' && selection.editing.id === relationshipId
+    };
+
+    class NodePair {
+        constructor(node1, node2, start, end) {
+            if (node1.id < node2.id) {
+                this.nodeA = node1;
+                this.attachA = start;
+                this.nodeB = node2;
+                this.attachB = end;
+            } else {
+                this.nodeA = node2;
+                this.attachA = end;
+                this.nodeB = node1;
+                this.attachB = start;
+            }
+        }
+
+        key() {
+            return `${this.nodeA.id}:${this.nodeB.id}:${attachKey(this.attachA)}:${attachKey(this.attachB)}`
+        }
+    }
+
+    const attachKey = (attach) => {
+        if (attach) {
+            return attach.attachment.name
+        }
+        return 'normal'
+    };
+
+    const bundle = (relationships) => {
+        const bundles = {};
+        relationships.forEach(r => {
+            const nodePair = new NodePair(r.from, r.to, r.startAttachment, r.endAttachment);
+            const bundle = bundles[nodePair.key()] || (bundles[nodePair.key()] = []);
+            bundle.push(r);
+        });
+        return Object.values(bundles)
     };
 
     const getDistanceToLine = (x1, y1, x2, y2, x3, y3) => {
@@ -2357,552 +2428,26 @@
         return Math.sqrt(dx * dx + dy * dy)
     };
 
-    class SeekAndDestroy {
-        constructor(start, startDirection, end, endDirection) {
-            this.waypoints = [];
-            this.start = start;
-            this.position = start;
-            this.startDirection = startDirection;
-            this.direction = startDirection;
-            this.end = end;
-            this.endDirection = endDirection;
-        }
-
-        forwardToWaypoint(distance, turn, radius) {
-            this.position = this.position.translate(new Vector(distance, 0).rotate(this.direction));
-            this.direction = normaliseAngle(this.direction + turn);
-            this.waypoints.push({
-                point: this.position,
-                distance,
-                turn,
-                radius
-            });
-        }
-
-        get endRelative() {
-            return this.end.translate(this.position.vectorFromOrigin().invert()).rotate(-this.direction)
-        }
-
-        get endDirectionRelative() {
-            return normaliseAngle(this.endDirection - this.direction)
-        }
-
-        get rightAngleTowardsEnd() {
-            return this.endRelative.y < 0 ? -Math.PI / 2 : Math.PI / 2
-        }
-
-        segment(i) {
-            const from = i === 0 ? this.start : this.waypoints[i - 1].point;
-            const to = i < this.waypoints.length ? this.waypoints[i].point : this.end;
-            return {
-                from,
-                to
+    // creates a polygon for an arrow head facing right, with its point at the origin.
+    function arrowHead(ctx, headHeight, chinHeight, headWidth, fill, stroke) {
+        ctx.polygon([{
+                x: chinHeight - headHeight,
+                y: 0
+            },
+            {
+                x: -headHeight,
+                y: headWidth / 2
+            },
+            {
+                x: 0,
+                y: 0
+            },
+            {
+                x: -headHeight,
+                y: -headWidth / 2
             }
-        }
-
-        nextPoint(i) {
-            if (i + 1 < this.waypoints.length) {
-                const waypoint = this.waypoints[i];
-                const nextWaypoint = this.waypoints[i + 1].point;
-                const nextVector = nextWaypoint.vectorFrom(waypoint.point);
-                return waypoint.point.translate(nextVector.scale(0.5))
-            }
-            return this.end
-        }
-
-        get polarity() {
-            if (this.waypoints.length === 0) {
-                return 0
-            }
-            return Math.sign(this.waypoints[0].turn)
-        }
-
-        changeEnd(newEnd) {
-            const path = new SeekAndDestroy(this.start, this.startDirection, newEnd, this.endDirection);
-            path.waypoints = this.waypoints;
-            return path
-        }
-
-        inverse() {
-            const path = new SeekAndDestroy(
-                this.end,
-                normaliseAngle(this.endDirection + Math.PI),
-                this.start,
-                normaliseAngle(this.startDirection + Math.PI)
-            );
-            for (let i = this.waypoints.length - 1; i >= 0; i--) {
-                const waypoint = this.waypoints[i];
-                path.forwardToWaypoint(
-                    waypoint.point.vectorFrom(path.position).distance(), -waypoint.turn,
-                    waypoint.radius
-                );
-            }
-            return path
-        }
-
-        draw(ctx) {
-            ctx.moveTo(...this.start.xy);
-            let previous = this.start;
-            for (let i = 0; i < this.waypoints.length; i++) {
-                const waypoint = this.waypoints[i];
-                const next = this.nextPoint(i);
-                let control = waypoint.point;
-                const vector1 = previous.vectorFrom(control);
-                const vector2 = next.vectorFrom(control);
-                const d = waypoint.radius * Math.tan(Math.abs(waypoint.turn) / 2);
-                if (vector1.distance() < d) {
-                    const overlap = d - vector1.distance();
-                    control = control.translate(vector2.scale(overlap / vector2.distance()));
-                }
-                if (vector2.distance() < d) {
-                    const overlap = d - vector2.distance();
-                    control = control.translate(vector1.scale(overlap / vector1.distance()));
-                }
-
-                ctx.arcTo(...control.xy, ...next.xy, waypoint.radius);
-                previous = next;
-            }
-            ctx.lineTo(...this.end.xy);
-        }
-
-        distanceFrom(point) {
-            let minDistance = Infinity;
-            for (let i = 0; i < this.waypoints.length + 1; i++) {
-                const segment = this.segment(i);
-                const distance = getDistanceToLine(...segment.from.xy, ...segment.to.xy, ...point.xy);
-                minDistance = Math.min(distance, minDistance);
-            }
-            return minDistance
-        }
+        ], fill, stroke);
     }
-
-    const compareWaypoints = (a, b) => {
-        if (a.length === 0 && b.length === 0) return 0
-
-        if (a.length === 0) {
-            return -Math.sign(b[0].turn)
-        }
-
-        if (b.length === 0) {
-            return Math.sign(a[0].turn)
-        }
-
-        const aFirstWaypoint = a[0];
-        const bFirstWaypoint = b[0];
-
-        if (aFirstWaypoint.turn !== bFirstWaypoint.turn) {
-            return Math.sign(aFirstWaypoint.turn - bFirstWaypoint.turn)
-        }
-
-        if (Math.abs(aFirstWaypoint.distance - bFirstWaypoint.distance) > 0.0001) {
-            return Math.sin(a[0].turn) * Math.sign(bFirstWaypoint.distance - aFirstWaypoint.distance)
-        }
-
-        return compareWaypoints(a.slice(1), b.slice(1))
-    };
-
-    class RectilinearArrow {
-        constructor(startCentre, endCentre, startRadius, endRadius, startAttachment, endAttachment, dimensions) {
-            this.dimensions = dimensions;
-            const arcRadius = startAttachment.total > endAttachment.total ? computeArcRadius(startAttachment) : computeArcRadius(endAttachment);
-            const startAttachAngle = startAttachment.attachment.angle;
-            const endAttachAngle = endAttachment.attachment.angle;
-            const startOffset = (startAttachment.ordinal - (startAttachment.total - 1) / 2) * 10;
-            const endOffset = (endAttachment.ordinal - (endAttachment.total - 1) / 2) * 10;
-            const endShaftRadius = endRadius + this.dimensions.headHeight - this.dimensions.chinHeight;
-            const startAttach = startCentre.translate(new Vector(startRadius, startOffset).rotate(startAttachAngle));
-            const endAttach = endCentre.translate(new Vector(endRadius, endOffset).rotate(endAttachAngle));
-            this.endShaft = endCentre.translate(new Vector(endShaftRadius, endOffset).rotate(endAttachAngle));
-            const startNormalDistance = arcRadius + startAttachment.minNormalDistance;
-            const endNormalDistance = arcRadius + endAttachment.minNormalDistance - (this.dimensions.headHeight - this.dimensions.chinHeight);
-
-            const fanOut = startAttachment.total > endAttachment.total;
-
-            this.shaft = new SeekAndDestroy(startAttach, startAttachAngle, this.endShaft, normaliseAngle(endAttachAngle + Math.PI));
-            let longestSegmentIndex;
-
-            const initialAngle = Math.abs(Math.round(this.shaft.endDirectionRelative * 180 / Math.PI));
-            switch (initialAngle) {
-                case 0:
-                    if (this.shaft.endRelative.x > 0) {
-                        if (this.shaft.endRelative.y === 0) {
-                            longestSegmentIndex = 0;
-                        } else {
-                            const distance = this.shaft.endRelative.x < arcRadius * 2 ? this.shaft.endRelative.x / 2 :
-                                (fanOut ? startNormalDistance : this.shaft.endRelative.x - endNormalDistance);
-                            this.shaft.forwardToWaypoint(distance, this.shaft.rightAngleTowardsEnd, arcRadius);
-                            this.shaft.forwardToWaypoint(this.shaft.endRelative.x, this.shaft.rightAngleTowardsEnd, arcRadius);
-
-                            longestSegmentIndex = fanOut ? 2 : 0;
-                        }
-                    } else {
-                        this.shaft.forwardToWaypoint(startNormalDistance, this.shaft.rightAngleTowardsEnd, arcRadius);
-                        const distance = Math.max(startNormalDistance + startRadius, this.shaft.endRelative.x + endRadius + arcRadius);
-                        this.shaft.forwardToWaypoint(distance, this.shaft.rightAngleTowardsEnd, arcRadius);
-                        this.shaft.forwardToWaypoint(this.shaft.endRelative.x + endNormalDistance, this.shaft.rightAngleTowardsEnd, arcRadius);
-                        this.shaft.forwardToWaypoint(this.shaft.endRelative.x, this.shaft.rightAngleTowardsEnd, arcRadius);
-
-                        longestSegmentIndex = 2;
-                    }
-                    break
-
-                case 90:
-                    if (this.shaft.endRelative.x > 0) {
-                        if (this.shaft.endDirectionRelative * this.shaft.endRelative.y < 0) {
-                            this.shaft.forwardToWaypoint(this.shaft.endRelative.x - endRadius - arcRadius, this.shaft.rightAngleTowardsEnd, arcRadius);
-                            this.shaft.forwardToWaypoint(this.shaft.endRelative.x + arcRadius, this.shaft.rightAngleTowardsEnd, arcRadius);
-                        }
-                        this.shaft.forwardToWaypoint(this.shaft.endRelative.x, this.shaft.rightAngleTowardsEnd, arcRadius);
-                        longestSegmentIndex = 0;
-                    } else {
-                        longestSegmentIndex = Math.abs(this.shaft.endRelative.x) > Math.abs(this.shaft.endRelative.y) ? 1 : 2;
-
-                        this.shaft.forwardToWaypoint(Math.max(startNormalDistance, arcRadius * 2 + this.shaft.endRelative.x), this.shaft.rightAngleTowardsEnd, arcRadius);
-                        this.shaft.forwardToWaypoint(Math.max(this.shaft.endRelative.x + arcRadius, arcRadius * 2), this.shaft.rightAngleTowardsEnd, arcRadius);
-                        this.shaft.forwardToWaypoint(this.shaft.endRelative.x, this.shaft.rightAngleTowardsEnd, arcRadius);
-                    }
-                    break
-
-                default:
-                    if (Math.abs(this.shaft.endRelative.y) > arcRadius * 2) {
-                        const distance = Math.max(arcRadius, this.shaft.endRelative.x + arcRadius);
-                        this.shaft.forwardToWaypoint(distance, this.shaft.rightAngleTowardsEnd, arcRadius);
-                        this.shaft.forwardToWaypoint(this.shaft.endRelative.x, this.shaft.rightAngleTowardsEnd, arcRadius);
-
-                        longestSegmentIndex = 1;
-                    } else {
-                        this.shaft.forwardToWaypoint(arcRadius, this.shaft.rightAngleTowardsEnd, arcRadius);
-                        this.shaft.forwardToWaypoint(arcRadius + startRadius, this.shaft.rightAngleTowardsEnd, arcRadius);
-                        this.shaft.forwardToWaypoint(this.shaft.endRelative.x - arcRadius, this.shaft.rightAngleTowardsEnd, arcRadius);
-                        this.shaft.forwardToWaypoint(this.shaft.endRelative.x, this.shaft.rightAngleTowardsEnd, arcRadius);
-
-                        longestSegmentIndex = 3;
-                    }
-            }
-
-            this.path = this.shaft.changeEnd(endAttach);
-
-            const longestSegment = this.shaft.segment(longestSegmentIndex);
-            this.midShaft = longestSegment.from.translate(longestSegment.to.vectorFrom(longestSegment.from).scale(0.5));
-            this.midShaftAngle = longestSegment.from.vectorFrom(longestSegment.to).angle();
-        }
-
-        distanceFrom(point) {
-            return this.path.distanceFrom(point)
-        }
-
-        draw(ctx) {
-            ctx.save();
-            ctx.beginPath();
-            this.shaft.draw(ctx);
-            ctx.lineWidth = this.dimensions.arrowWidth;
-            ctx.strokeStyle = this.dimensions.arrowColor;
-            ctx.stroke();
-            if (this.dimensions.hasArrowHead) {
-                ctx.translate(...this.endShaft.xy);
-                ctx.rotate(this.shaft.endDirection);
-                ctx.translate(this.dimensions.headHeight - this.dimensions.chinHeight, 0);
-                ctx.fillStyle = this.dimensions.arrowColor;
-                arrowHead(ctx, this.dimensions.headHeight, this.dimensions.chinHeight, this.dimensions.headWidth, true, false);
-                ctx.fill();
-            }
-            ctx.restore();
-        }
-
-        drawSelectionIndicator(ctx) {
-            const indicatorWidth = 10;
-            ctx.save();
-            ctx.beginPath();
-            this.shaft.draw(ctx);
-            ctx.lineWidth = this.dimensions.arrowWidth + indicatorWidth;
-            ctx.lineCap = 'round';
-            ctx.strokeStyle = this.dimensions.selectionColor;
-            ctx.stroke();
-            if (this.dimensions.hasArrowHead) {
-                ctx.translate(...this.endShaft.xy);
-                ctx.rotate(this.shaft.endDirection);
-                ctx.translate(this.dimensions.headHeight - this.dimensions.chinHeight, 0);
-                ctx.lineWidth = indicatorWidth;
-                ctx.lineJoin = 'round';
-                arrowHead(ctx, this.dimensions.headHeight, this.dimensions.chinHeight, this.dimensions.headWidth, false, true);
-                ctx.stroke();
-            }
-            ctx.restore();
-        }
-
-        midPoint() {
-            return this.midShaft
-        }
-
-        shaftAngle() {
-            return this.midShaftAngle
-        }
-
-        get arrowKind() {
-            return 'straight'
-        }
-    }
-
-    const computeArcRadius = (attachment) => {
-        return 40 + attachment.radiusOrdinal * 10
-    };
-
-    class ElbowArrow {
-        constructor(startCentre, endCentre, startRadius, endRadius, startAttachment, endAttachment, dimensions) {
-            this.dimensions = dimensions;
-            const fixedEnd = (startAttachment && startAttachment.attachment.name !== 'normal') ? 'start' : 'end';
-            const fixedAttachment = fixedEnd === 'start' ? startAttachment : endAttachment;
-            const arcRadius = 40 + fixedAttachment.radiusOrdinal * 10;
-            const fixedCentre = fixedEnd === 'start' ? startCentre : endCentre;
-            const normalCentre = fixedEnd === 'end' ? startCentre : endCentre;
-            const fixedRadius = fixedEnd === 'start' ? startRadius : endRadius + dimensions.headHeight - dimensions.chinHeight;
-            const fixedDivergeRadius = fixedEnd === 'start' ? startRadius + startAttachment.minNormalDistance : endRadius + Math.max(endAttachment.minNormalDistance, dimensions.headHeight - dimensions.chinHeight);
-            const normalRadius = fixedEnd === 'end' ? startRadius : endRadius + dimensions.headHeight - dimensions.chinHeight;
-            const fixedAttachAngle = fixedAttachment.attachment.angle;
-            const offset = (fixedAttachment.ordinal - (fixedAttachment.total - 1) / 2) * 10;
-            const fixedAttach = fixedCentre.translate(new Vector(fixedRadius, offset).rotate(fixedAttachAngle));
-            const fixedDiverge = fixedCentre.translate(new Vector(fixedDivergeRadius, offset).rotate(fixedAttachAngle));
-            const normalCentreRelative = normalCentre.translate(fixedDiverge.vectorFromOrigin().invert()).rotate(-fixedAttachAngle);
-            const arcCentre = new Point(0, normalCentreRelative.y < 0 ? -arcRadius : arcRadius);
-            const arcCentreVector = normalCentreRelative.vectorFrom(arcCentre);
-            const gamma = Math.asin(arcRadius / arcCentreVector.distance());
-            const theta = gamma + Math.abs(arcCentreVector.angle());
-            const d = arcRadius * Math.tan(theta / 2);
-            const control = fixedAttach.translate(new Vector(d, 0).rotate(fixedAttachAngle));
-            const normalAttachAngle = control.vectorFrom(normalCentre).angle();
-            const normalAttach = normalCentre.translate(new Vector(normalRadius, 0).rotate(normalAttachAngle));
-
-            const path = new SeekAndDestroy(fixedAttach, fixedAttachAngle, normalAttach, normaliseAngle(normalAttachAngle + Math.PI));
-            path.forwardToWaypoint(d + fixedDivergeRadius - fixedRadius, Math.sign(path.endDirectionRelative) * theta, arcRadius);
-
-            const longestSegment = path.segment(1);
-            this.midShaft = longestSegment.from.translate(longestSegment.to.vectorFrom(longestSegment.from).scale(0.5));
-            this.midShaftAngle = longestSegment.from.vectorFrom(longestSegment.to).angle();
-            if (fixedEnd === 'start') {
-                this.midShaftAngle = normaliseAngle(this.midShaftAngle + Math.PI);
-            }
-
-            this.path = fixedEnd === 'start' ? path : path.inverse();
-        }
-
-        distanceFrom(point) {
-            return this.path.distanceFrom(point)
-        }
-
-        draw(ctx) {
-            ctx.save();
-            ctx.beginPath();
-            this.path.draw(ctx);
-            ctx.lineWidth = this.dimensions.arrowWidth;
-            ctx.strokeStyle = this.dimensions.arrowColor;
-            ctx.stroke();
-            if (this.dimensions.hasArrowHead) {
-                ctx.translate(...this.path.end.xy);
-                ctx.rotate(this.path.endDirection);
-                ctx.translate(this.dimensions.headHeight - this.dimensions.chinHeight, 0);
-                ctx.fillStyle = this.dimensions.arrowColor;
-                arrowHead(ctx, this.dimensions.headHeight, this.dimensions.chinHeight, this.dimensions.headWidth, true, false);
-                ctx.fill();
-            }
-            ctx.restore();
-        }
-
-        drawSelectionIndicator(ctx) {
-            const indicatorWidth = 10;
-            ctx.save();
-            ctx.beginPath();
-            this.path.draw(ctx);
-            ctx.lineWidth = this.dimensions.arrowWidth + indicatorWidth;
-            ctx.lineCap = 'round';
-            ctx.strokeStyle = this.dimensions.selectionColor;
-            ctx.stroke();
-            if (this.dimensions.hasArrowHead) {
-                ctx.translate(...this.path.end.xy);
-                ctx.rotate(this.path.endDirection);
-                ctx.translate(this.dimensions.headHeight - this.dimensions.chinHeight, 0);
-                ctx.lineWidth = indicatorWidth;
-                ctx.lineJoin = 'round';
-                arrowHead(ctx, this.dimensions.headHeight, this.dimensions.chinHeight, this.dimensions.headWidth, false, true);
-                ctx.stroke();
-            }
-            ctx.restore();
-        }
-
-        midPoint() {
-            return this.midShaft
-        }
-
-        shaftAngle() {
-            return this.midShaftAngle
-        }
-
-        get arrowKind() {
-            return 'straight'
-        }
-    }
-
-    const computeRelationshipAttachments = (graph, visualNodes) => {
-        const nodeAttachments = {};
-        const countAttachment = (nodeId, attachmentOptionName) => {
-            const nodeCounters = nodeAttachments[nodeId] || (nodeAttachments[nodeId] = {});
-            nodeCounters[attachmentOptionName] = (nodeCounters[attachmentOptionName] || 0) + 1;
-        };
-
-        graph.relationships.forEach(relationship => {
-            const style = styleAttribute => getStyleSelector(relationship, styleAttribute, graph);
-            countAttachment(relationship.fromId, style('attachment-start'));
-            countAttachment(relationship.toId, style('attachment-end'));
-        });
-
-        const centralAttachment = (nodeId, attachmentOptionName) => {
-            const total = nodeAttachments[nodeId][attachmentOptionName];
-            return {
-                attachment: findOption(attachmentOptionName),
-                ordinal: (total - 1) / 2,
-                radiusOrdinal: 0,
-                minNormalDistance: 0,
-                total
-            }
-        };
-
-        const routedRelationships = graph.relationships.map(relationship => {
-            const style = styleAttribute => getStyleSelector(relationship, styleAttribute, graph);
-            const startAttachment = centralAttachment(relationship.fromId, style('attachment-start'));
-            const endAttachment = centralAttachment(relationship.toId, style('attachment-end'));
-
-            const resolvedRelationship = new ResolvedRelationship(
-                relationship,
-                visualNodes[relationship.fromId],
-                visualNodes[relationship.toId],
-                startAttachment,
-                endAttachment,
-                false,
-                graph
-            );
-
-            let arrow;
-            
-            if (startAttachment.attachment.name !== 'normal' || endAttachment.attachment.name !== 'normal') {
-                if (startAttachment.attachment.name !== 'normal' && endAttachment.attachment.name !== 'normal') {
-                    const dimensions = relationshipArrowDimensions(resolvedRelationship, graph, resolvedRelationship.from);
-                    arrow = new RectilinearArrow(
-                        resolvedRelationship.from.position,
-                        resolvedRelationship.to.position,
-                        dimensions.startRadius,
-                        dimensions.endRadius,
-                        resolvedRelationship.startAttachment,
-                        resolvedRelationship.endAttachment,
-                        dimensions
-                    );
-                } else {
-                    const dimensions = relationshipArrowDimensions(resolvedRelationship, graph, resolvedRelationship.from);
-                    arrow = new ElbowArrow(
-                        resolvedRelationship.from.position,
-                        resolvedRelationship.to.position,
-                        dimensions.startRadius,
-                        dimensions.endRadius,
-                        resolvedRelationship.startAttachment,
-                        resolvedRelationship.endAttachment,
-                        dimensions
-                    );
-                }
-            }
-            return {
-                resolvedRelationship,
-                arrow
-            }
-        });
-
-        const relationshipAttachments = {
-            start: {},
-            end: {}
-        };
-        graph.nodes.forEach(node => {
-            const relationships = routedRelationships
-                .filter(routedRelationship =>
-                    node.id === routedRelationship.resolvedRelationship.from.id ||
-                    node.id === routedRelationship.resolvedRelationship.to.id);
-
-            attachmentOptions.forEach(option => {
-                const relevantRelationships = relationships.filter(routedRelationship => {
-                    const startAttachment = routedRelationship.resolvedRelationship.startAttachment;
-                    const endAttachment = routedRelationship.resolvedRelationship.endAttachment;
-                    return (startAttachment.attachment === option && node.id === routedRelationship.resolvedRelationship.from.id) ||
-                        (endAttachment.attachment === option && node.id === routedRelationship.resolvedRelationship.to.id)
-                });
-
-                const neighbours = relevantRelationships.map(routedRelationship => {
-                    const direction = (
-                        routedRelationship.resolvedRelationship.from.id === node.id &&
-                        routedRelationship.resolvedRelationship.startAttachment.attachment === option
-                    ) ? 'start' : 'end';
-                    let path, headSpace = 0;
-                    if (routedRelationship.arrow) {
-                        if (direction === 'end') {
-                            const dimensions = routedRelationship.arrow.dimensions;
-                            headSpace = dimensions.headHeight - dimensions.chinHeight;
-                        }
-                        if (routedRelationship.arrow.path && routedRelationship.arrow.path.waypoints) {
-                            if (direction === 'start') {
-                                path = routedRelationship.arrow.path;
-                            } else {
-                                path = routedRelationship.arrow.path.inverse();
-                            }
-                        }
-                    }
-
-                    return {
-                        relationship: routedRelationship.resolvedRelationship.relationship,
-                        direction,
-                        path,
-                        headSpace
-                    }
-                });
-
-                const maxHeadSpace = Math.max(...neighbours.map(neighbour => neighbour.headSpace));
-
-                neighbours.sort((a, b) => {
-                    return (a.path && b.path) ? compareWaypoints(a.path.waypoints, b.path.waypoints) : 0
-                });
-                
-                neighbours.forEach((neighbour, i) => {
-                    relationshipAttachments[neighbour.direction][neighbour.relationship.id] = {
-                        attachment: option,
-                        ordinal: i,
-                        radiusOrdinal: computeRadiusOrdinal(neighbour.path, i, neighbours.length),
-                        minNormalDistance: maxHeadSpace,
-                        total: neighbours.length
-                    };
-                });
-            });
-        });
-
-        return relationshipAttachments
-    };
-
-    const findOption = (optionName) => {
-        return attachmentOptions.find(option => option.name === optionName) || {
-            name: 'normal'
-        }
-    };
-
-    const computeRadiusOrdinal = (path, ordinal, total) => {
-        if (path) {
-            const polarity = path.polarity;
-
-            switch (polarity) {
-                case -1:
-                    return ordinal
-
-                case 1:
-                    return total - ordinal - 1
-
-                default:
-                    return Math.max(ordinal, total - ordinal - 1)
-            }
-        }
-        return 0
-    };
 
     class ParallelArrow {
         constructor(startCentre, endCentre, startRadius, endRadius, startDeflection, endDeflection, displacement, arcRadius, dimensions) {
@@ -3004,6 +2549,17 @@
             return 'straight'
         }
     }
+
+    const perpendicular = (angle) => {
+        return normaliseAngle(angle + Math.PI / 2)
+    };
+
+    const normaliseAngle = (angle) => {
+        let goodAngle = angle;
+        while (goodAngle < -Math.PI) goodAngle += 2 * Math.PI;
+        while (goodAngle > Math.PI) goodAngle -= 2 * Math.PI;
+        return goodAngle
+    };
 
     class StraightArrow {
         constructor(startCentre, endCentre, startAttach, endAttach, dimensions) {
@@ -3181,6 +2737,157 @@
             const top = this.boxPosition.y;
 
             return new BoundingBox(left, left + this.width, top, top + this.height)
+        }
+
+        distanceFrom(point) {
+            return this.boundingBox().contains(point) ? 0 : Infinity
+        }
+    }
+
+    class PropertiesBox {
+        constructor(properties, editing, style, textMeasurement) {
+            this.editing = editing;
+            this.font = {
+                fontWeight: style('property-font-weight'),
+                fontSize: style('property-font-size'),
+                fontFamily: style('font-family')
+            };
+            textMeasurement.font = this.font;
+            this.fontColor = style('property-color');
+            this.selectionColor = adaptForBackground(this.editing ? selectionHandle : selectionBorder, style);
+            this.lineHeight = this.font.fontSize * 1.2;
+            this.alignment = style('property-alignment');
+            this.properties = Object.keys(properties).map(key => ({
+                key,
+                value: properties[key]
+            }));
+            this.spaceWidth = textMeasurement.measureText(' ').width;
+            this.colonWidth = textMeasurement.measureText(':').width;
+            const maxWidth = (selector) => {
+                if (this.properties.length === 0) return 0
+                return Math.max(...this.properties.map(property => {
+                    return textMeasurement.measureText(selector(property)).width
+                }))
+            };
+
+            switch (this.editing ? 'colon' : this.alignment) {
+                case 'colon':
+                    this.keysWidth = maxWidth(property => property.key) + this.spaceWidth;
+                    this.valuesWidth = maxWidth(property => property.value) + this.spaceWidth;
+                    this.boxWidth = this.keysWidth + this.colonWidth + this.spaceWidth + this.valuesWidth;
+                    break
+
+                case 'center':
+                    this.boxWidth = maxWidth(property => property.key + ': ' + property.value);
+                    break
+            }
+            this.boxHeight = this.lineHeight * this.properties.length;
+        }
+
+        get isEmpty() {
+            return this.properties.length === 0
+        }
+
+        draw(ctx) {
+            ctx.save();
+
+            ctx.font = this.font;
+            ctx.fillStyle = this.fontColor;
+            ctx.textBaseline = 'middle';
+
+            this.properties.forEach((property, index) => {
+                const yPosition = (index + 0.5) * this.lineHeight;
+                if (this.editing) {
+                    drawTextLine(ctx, ':', new Point(this.keysWidth + this.colonWidth, yPosition), 'end');
+                } else {
+                    switch (this.alignment) {
+                        case 'colon':
+                            drawTextLine(ctx, property.key + ':', new Point(this.keysWidth + this.colonWidth, yPosition), 'end');
+                            drawTextLine(ctx, property.value, new Point(this.keysWidth + this.colonWidth + this.spaceWidth, yPosition), 'start');
+                            break
+
+                        case 'center':
+                            drawTextLine(ctx, property.key + ': ' + property.value, new Point(this.boxWidth / 2, yPosition), 'center');
+                            break
+                    }
+                }
+            });
+
+            ctx.restore();
+        }
+
+        drawBackground(ctx) {
+            const boundingBox = this.boundingBox();
+            ctx.fillStyle = 'white';
+            ctx.rect(boundingBox.left, boundingBox.top, boundingBox.width, boundingBox.height, 0, true, false);
+        }
+
+        drawSelectionIndicator(ctx) {
+            const indicatorWidth = 10;
+            const boundingBox = this.boundingBox();
+
+            ctx.save();
+
+            ctx.strokeStyle = this.selectionColor;
+            ctx.lineWidth = indicatorWidth;
+            ctx.lineJoin = 'round';
+            ctx.rect(boundingBox.left, boundingBox.top, boundingBox.width, boundingBox.height, 0, false, true);
+
+            ctx.restore();
+        }
+
+        boundingBox() {
+            return new BoundingBox(0, this.boxWidth, 0, this.boxHeight)
+        }
+    }
+
+    class PropertiesOutside {
+        constructor(properties, orientation, editing, style, textMeasurement) {
+            this.propertiesBox = new PropertiesBox(properties, editing, style, textMeasurement);
+            this.width = this.propertiesBox.boxWidth;
+            this.height = this.propertiesBox.boxHeight;
+            const horizontalPosition = (() => {
+                switch (orientation.horizontal) {
+                    case 'start':
+                        return 0
+                    case 'center':
+                        return -this.width / 2
+                    case 'end':
+                        return -this.width
+                }
+            })();
+            this.boxPosition = new Point(horizontalPosition, 0);
+        }
+
+        get type() {
+            return 'PROPERTIES'
+        }
+
+        get isEmpty() {
+            return this.propertiesBox.isEmpty
+        }
+
+        draw(ctx) {
+            if (!this.isEmpty) {
+                ctx.save();
+
+                ctx.translate(...this.boxPosition.xy);
+                this.propertiesBox.drawBackground(ctx);
+                this.propertiesBox.draw(ctx);
+
+                ctx.restore();
+            }
+        }
+
+        drawSelectionIndicator(ctx) {
+            ctx.save();
+            ctx.translate(...this.boxPosition.xy);
+            this.propertiesBox.drawSelectionIndicator(ctx);
+            ctx.restore();
+        }
+
+        boundingBox() {
+            return this.propertiesBox.boundingBox().translate(this.boxPosition.vectorFromOrigin())
         }
 
         distanceFrom(point) {
@@ -3413,28 +3120,6 @@
         return new Vector(horizontalPosition, -height / 2)
     };
 
-    const nodeSelected = (selection, nodeId) => {
-        return selection.entities.some(entity =>
-            entity.entityType === 'node' && entity.id === nodeId
-        )
-    };
-
-    const nodeEditing = (selection, nodeId) => {
-        return selection.editing &&
-            selection.editing.entityType === 'node' && selection.editing.id === nodeId
-    };
-
-    const relationshipSelected = (selection, relationshipId) => {
-        return selection.entities.some(entity =>
-            entity.entityType === 'relationship' && entity.id === relationshipId
-        )
-    };
-
-    const relationshipEditing = (selection, relationshipId) => {
-        return selection.editing &&
-            selection.editing.entityType === 'relationship' && selection.editing.id === relationshipId
-    };
-
     class BalloonArrow {
         constructor(nodeCentre, nodeRadius, angle, separation, length, arcRadius, dimensions) {
             this.nodeCentre = nodeCentre;
@@ -3544,6 +3229,429 @@
         return {
             gap,
             start
+        }
+    };
+
+    class SeekAndDestroy {
+        constructor(start, startDirection, end, endDirection) {
+            this.waypoints = [];
+            this.start = start;
+            this.position = start;
+            this.startDirection = startDirection;
+            this.direction = startDirection;
+            this.end = end;
+            this.endDirection = endDirection;
+        }
+
+        forwardToWaypoint(distance, turn, radius) {
+            this.position = this.position.translate(new Vector(distance, 0).rotate(this.direction));
+            this.direction = normaliseAngle(this.direction + turn);
+            this.waypoints.push({
+                point: this.position,
+                distance,
+                turn,
+                radius
+            });
+        }
+
+        get endRelative() {
+            return this.end.translate(this.position.vectorFromOrigin().invert()).rotate(-this.direction)
+        }
+
+        get endDirectionRelative() {
+            return normaliseAngle(this.endDirection - this.direction)
+        }
+
+        get rightAngleTowardsEnd() {
+            return this.endRelative.y < 0 ? -Math.PI / 2 : Math.PI / 2
+        }
+
+        segment(i) {
+            const from = i === 0 ? this.start : this.waypoints[i - 1].point;
+            const to = i < this.waypoints.length ? this.waypoints[i].point : this.end;
+            return {
+                from,
+                to
+            }
+        }
+
+        nextPoint(i) {
+            if (i + 1 < this.waypoints.length) {
+                const waypoint = this.waypoints[i];
+                const nextWaypoint = this.waypoints[i + 1].point;
+                const nextVector = nextWaypoint.vectorFrom(waypoint.point);
+                return waypoint.point.translate(nextVector.scale(0.5))
+            }
+            return this.end
+        }
+
+        get polarity() {
+            if (this.waypoints.length === 0) {
+                return 0
+            }
+            return Math.sign(this.waypoints[0].turn)
+        }
+
+        changeEnd(newEnd) {
+            const path = new SeekAndDestroy(this.start, this.startDirection, newEnd, this.endDirection);
+            path.waypoints = this.waypoints;
+            return path
+        }
+
+        inverse() {
+            const path = new SeekAndDestroy(
+                this.end,
+                normaliseAngle(this.endDirection + Math.PI),
+                this.start,
+                normaliseAngle(this.startDirection + Math.PI)
+            );
+            for (let i = this.waypoints.length - 1; i >= 0; i--) {
+                const waypoint = this.waypoints[i];
+                path.forwardToWaypoint(
+                    waypoint.point.vectorFrom(path.position).distance(), -waypoint.turn,
+                    waypoint.radius
+                );
+            }
+            return path
+        }
+
+        draw(ctx) {
+            ctx.moveTo(...this.start.xy);
+            let previous = this.start;
+            for (let i = 0; i < this.waypoints.length; i++) {
+                const waypoint = this.waypoints[i];
+                const next = this.nextPoint(i);
+                let control = waypoint.point;
+                const vector1 = previous.vectorFrom(control);
+                const vector2 = next.vectorFrom(control);
+                const d = waypoint.radius * Math.tan(Math.abs(waypoint.turn) / 2);
+                if (vector1.distance() < d) {
+                    const overlap = d - vector1.distance();
+                    control = control.translate(vector2.scale(overlap / vector2.distance()));
+                }
+                if (vector2.distance() < d) {
+                    const overlap = d - vector2.distance();
+                    control = control.translate(vector1.scale(overlap / vector1.distance()));
+                }
+
+                ctx.arcTo(...control.xy, ...next.xy, waypoint.radius);
+                previous = next;
+            }
+            ctx.lineTo(...this.end.xy);
+        }
+
+        distanceFrom(point) {
+            let minDistance = Infinity;
+            for (let i = 0; i < this.waypoints.length + 1; i++) {
+                const segment = this.segment(i);
+                const distance = getDistanceToLine(...segment.from.xy, ...segment.to.xy, ...point.xy);
+                minDistance = Math.min(distance, minDistance);
+            }
+            return minDistance
+        }
+    }
+
+    const compareWaypoints = (a, b) => {
+        if (a.length === 0 && b.length === 0) return 0
+
+        if (a.length === 0) {
+            return -Math.sign(b[0].turn)
+        }
+
+        if (b.length === 0) {
+            return Math.sign(a[0].turn)
+        }
+
+        const aFirstWaypoint = a[0];
+        const bFirstWaypoint = b[0];
+
+        if (aFirstWaypoint.turn !== bFirstWaypoint.turn) {
+            return Math.sign(aFirstWaypoint.turn - bFirstWaypoint.turn)
+        }
+
+        if (Math.abs(aFirstWaypoint.distance - bFirstWaypoint.distance) > 0.0001) {
+            return Math.sin(a[0].turn) * Math.sign(bFirstWaypoint.distance - aFirstWaypoint.distance)
+        }
+
+        return compareWaypoints(a.slice(1), b.slice(1))
+    };
+
+    class ElbowArrow {
+        constructor(startCentre, endCentre, startRadius, endRadius, startAttachment, endAttachment, dimensions) {
+            this.dimensions = dimensions;
+            const fixedEnd = (startAttachment && startAttachment.attachment.name !== 'normal') ? 'start' : 'end';
+            const fixedAttachment = fixedEnd === 'start' ? startAttachment : endAttachment;
+            const arcRadius = 40 + fixedAttachment.radiusOrdinal * 10;
+            const fixedCentre = fixedEnd === 'start' ? startCentre : endCentre;
+            const normalCentre = fixedEnd === 'end' ? startCentre : endCentre;
+            const fixedRadius = fixedEnd === 'start' ? startRadius : endRadius + dimensions.headHeight - dimensions.chinHeight;
+            const fixedDivergeRadius = fixedEnd === 'start' ? startRadius + startAttachment.minNormalDistance : endRadius + Math.max(endAttachment.minNormalDistance, dimensions.headHeight - dimensions.chinHeight);
+            const normalRadius = fixedEnd === 'end' ? startRadius : endRadius + dimensions.headHeight - dimensions.chinHeight;
+            const fixedAttachAngle = fixedAttachment.attachment.angle;
+            const offset = (fixedAttachment.ordinal - (fixedAttachment.total - 1) / 2) * 10;
+            const fixedAttach = fixedCentre.translate(new Vector(fixedRadius, offset).rotate(fixedAttachAngle));
+            const fixedDiverge = fixedCentre.translate(new Vector(fixedDivergeRadius, offset).rotate(fixedAttachAngle));
+            const normalCentreRelative = normalCentre.translate(fixedDiverge.vectorFromOrigin().invert()).rotate(-fixedAttachAngle);
+            const arcCentre = new Point(0, normalCentreRelative.y < 0 ? -arcRadius : arcRadius);
+            const arcCentreVector = normalCentreRelative.vectorFrom(arcCentre);
+            const gamma = Math.asin(arcRadius / arcCentreVector.distance());
+            const theta = gamma + Math.abs(arcCentreVector.angle());
+            const d = arcRadius * Math.tan(theta / 2);
+            const control = fixedAttach.translate(new Vector(d, 0).rotate(fixedAttachAngle));
+            const normalAttachAngle = control.vectorFrom(normalCentre).angle();
+            const normalAttach = normalCentre.translate(new Vector(normalRadius, 0).rotate(normalAttachAngle));
+
+            const path = new SeekAndDestroy(fixedAttach, fixedAttachAngle, normalAttach, normaliseAngle(normalAttachAngle + Math.PI));
+            path.forwardToWaypoint(d + fixedDivergeRadius - fixedRadius, Math.sign(path.endDirectionRelative) * theta, arcRadius);
+
+            const longestSegment = path.segment(1);
+            this.midShaft = longestSegment.from.translate(longestSegment.to.vectorFrom(longestSegment.from).scale(0.5));
+            this.midShaftAngle = longestSegment.from.vectorFrom(longestSegment.to).angle();
+            if (fixedEnd === 'start') {
+                this.midShaftAngle = normaliseAngle(this.midShaftAngle + Math.PI);
+            }
+
+            this.path = fixedEnd === 'start' ? path : path.inverse();
+        }
+
+        distanceFrom(point) {
+            return this.path.distanceFrom(point)
+        }
+
+        draw(ctx) {
+            ctx.save();
+            ctx.beginPath();
+            this.path.draw(ctx);
+            ctx.lineWidth = this.dimensions.arrowWidth;
+            ctx.strokeStyle = this.dimensions.arrowColor;
+            ctx.stroke();
+            if (this.dimensions.hasArrowHead) {
+                ctx.translate(...this.path.end.xy);
+                ctx.rotate(this.path.endDirection);
+                ctx.translate(this.dimensions.headHeight - this.dimensions.chinHeight, 0);
+                ctx.fillStyle = this.dimensions.arrowColor;
+                arrowHead(ctx, this.dimensions.headHeight, this.dimensions.chinHeight, this.dimensions.headWidth, true, false);
+                ctx.fill();
+            }
+            ctx.restore();
+        }
+
+        drawSelectionIndicator(ctx) {
+            const indicatorWidth = 10;
+            ctx.save();
+            ctx.beginPath();
+            this.path.draw(ctx);
+            ctx.lineWidth = this.dimensions.arrowWidth + indicatorWidth;
+            ctx.lineCap = 'round';
+            ctx.strokeStyle = this.dimensions.selectionColor;
+            ctx.stroke();
+            if (this.dimensions.hasArrowHead) {
+                ctx.translate(...this.path.end.xy);
+                ctx.rotate(this.path.endDirection);
+                ctx.translate(this.dimensions.headHeight - this.dimensions.chinHeight, 0);
+                ctx.lineWidth = indicatorWidth;
+                ctx.lineJoin = 'round';
+                arrowHead(ctx, this.dimensions.headHeight, this.dimensions.chinHeight, this.dimensions.headWidth, false, true);
+                ctx.stroke();
+            }
+            ctx.restore();
+        }
+
+        midPoint() {
+            return this.midShaft
+        }
+
+        shaftAngle() {
+            return this.midShaftAngle
+        }
+
+        get arrowKind() {
+            return 'straight'
+        }
+    }
+
+    class RectilinearArrow {
+        constructor(startCentre, endCentre, startRadius, endRadius, startAttachment, endAttachment, dimensions) {
+            this.dimensions = dimensions;
+            const arcRadius = startAttachment.total > endAttachment.total ? computeArcRadius(startAttachment) : computeArcRadius(endAttachment);
+            const startAttachAngle = startAttachment.attachment.angle;
+            const endAttachAngle = endAttachment.attachment.angle;
+            const startOffset = (startAttachment.ordinal - (startAttachment.total - 1) / 2) * 10;
+            const endOffset = (endAttachment.ordinal - (endAttachment.total - 1) / 2) * 10;
+            const endShaftRadius = endRadius + this.dimensions.headHeight - this.dimensions.chinHeight;
+            const startAttach = startCentre.translate(new Vector(startRadius, startOffset).rotate(startAttachAngle));
+            const endAttach = endCentre.translate(new Vector(endRadius, endOffset).rotate(endAttachAngle));
+            this.endShaft = endCentre.translate(new Vector(endShaftRadius, endOffset).rotate(endAttachAngle));
+            const startNormalDistance = arcRadius + startAttachment.minNormalDistance;
+            const endNormalDistance = arcRadius + endAttachment.minNormalDistance - (this.dimensions.headHeight - this.dimensions.chinHeight);
+
+            const fanOut = startAttachment.total > endAttachment.total;
+
+            this.shaft = new SeekAndDestroy(startAttach, startAttachAngle, this.endShaft, normaliseAngle(endAttachAngle + Math.PI));
+            let longestSegmentIndex;
+
+            const initialAngle = Math.abs(Math.round(this.shaft.endDirectionRelative * 180 / Math.PI));
+            switch (initialAngle) {
+                case 0:
+                    if (this.shaft.endRelative.x > 0) {
+                        if (this.shaft.endRelative.y === 0) {
+                            longestSegmentIndex = 0;
+                        } else {
+                            const distance = this.shaft.endRelative.x < arcRadius * 2 ? this.shaft.endRelative.x / 2 :
+                                (fanOut ? startNormalDistance : this.shaft.endRelative.x - endNormalDistance);
+                            this.shaft.forwardToWaypoint(distance, this.shaft.rightAngleTowardsEnd, arcRadius);
+                            this.shaft.forwardToWaypoint(this.shaft.endRelative.x, this.shaft.rightAngleTowardsEnd, arcRadius);
+
+                            longestSegmentIndex = fanOut ? 2 : 0;
+                        }
+                    } else {
+                        this.shaft.forwardToWaypoint(startNormalDistance, this.shaft.rightAngleTowardsEnd, arcRadius);
+                        const distance = Math.max(startNormalDistance + startRadius, this.shaft.endRelative.x + endRadius + arcRadius);
+                        this.shaft.forwardToWaypoint(distance, this.shaft.rightAngleTowardsEnd, arcRadius);
+                        this.shaft.forwardToWaypoint(this.shaft.endRelative.x + endNormalDistance, this.shaft.rightAngleTowardsEnd, arcRadius);
+                        this.shaft.forwardToWaypoint(this.shaft.endRelative.x, this.shaft.rightAngleTowardsEnd, arcRadius);
+
+                        longestSegmentIndex = 2;
+                    }
+                    break
+
+                case 90:
+                    if (this.shaft.endRelative.x > 0) {
+                        if (this.shaft.endDirectionRelative * this.shaft.endRelative.y < 0) {
+                            this.shaft.forwardToWaypoint(this.shaft.endRelative.x - endRadius - arcRadius, this.shaft.rightAngleTowardsEnd, arcRadius);
+                            this.shaft.forwardToWaypoint(this.shaft.endRelative.x + arcRadius, this.shaft.rightAngleTowardsEnd, arcRadius);
+                        }
+                        this.shaft.forwardToWaypoint(this.shaft.endRelative.x, this.shaft.rightAngleTowardsEnd, arcRadius);
+                        longestSegmentIndex = 0;
+                    } else {
+                        longestSegmentIndex = Math.abs(this.shaft.endRelative.x) > Math.abs(this.shaft.endRelative.y) ? 1 : 2;
+
+                        this.shaft.forwardToWaypoint(Math.max(startNormalDistance, arcRadius * 2 + this.shaft.endRelative.x), this.shaft.rightAngleTowardsEnd, arcRadius);
+                        this.shaft.forwardToWaypoint(Math.max(this.shaft.endRelative.x + arcRadius, arcRadius * 2), this.shaft.rightAngleTowardsEnd, arcRadius);
+                        this.shaft.forwardToWaypoint(this.shaft.endRelative.x, this.shaft.rightAngleTowardsEnd, arcRadius);
+                    }
+                    break
+
+                default:
+                    if (Math.abs(this.shaft.endRelative.y) > arcRadius * 2) {
+                        const distance = Math.max(arcRadius, this.shaft.endRelative.x + arcRadius);
+                        this.shaft.forwardToWaypoint(distance, this.shaft.rightAngleTowardsEnd, arcRadius);
+                        this.shaft.forwardToWaypoint(this.shaft.endRelative.x, this.shaft.rightAngleTowardsEnd, arcRadius);
+
+                        longestSegmentIndex = 1;
+                    } else {
+                        this.shaft.forwardToWaypoint(arcRadius, this.shaft.rightAngleTowardsEnd, arcRadius);
+                        this.shaft.forwardToWaypoint(arcRadius + startRadius, this.shaft.rightAngleTowardsEnd, arcRadius);
+                        this.shaft.forwardToWaypoint(this.shaft.endRelative.x - arcRadius, this.shaft.rightAngleTowardsEnd, arcRadius);
+                        this.shaft.forwardToWaypoint(this.shaft.endRelative.x, this.shaft.rightAngleTowardsEnd, arcRadius);
+
+                        longestSegmentIndex = 3;
+                    }
+            }
+
+            this.path = this.shaft.changeEnd(endAttach);
+
+            const longestSegment = this.shaft.segment(longestSegmentIndex);
+            this.midShaft = longestSegment.from.translate(longestSegment.to.vectorFrom(longestSegment.from).scale(0.5));
+            this.midShaftAngle = longestSegment.from.vectorFrom(longestSegment.to).angle();
+        }
+
+        distanceFrom(point) {
+            return this.path.distanceFrom(point)
+        }
+
+        draw(ctx) {
+            ctx.save();
+            ctx.beginPath();
+            this.shaft.draw(ctx);
+            ctx.lineWidth = this.dimensions.arrowWidth;
+            ctx.strokeStyle = this.dimensions.arrowColor;
+            ctx.stroke();
+            if (this.dimensions.hasArrowHead) {
+                ctx.translate(...this.endShaft.xy);
+                ctx.rotate(this.shaft.endDirection);
+                ctx.translate(this.dimensions.headHeight - this.dimensions.chinHeight, 0);
+                ctx.fillStyle = this.dimensions.arrowColor;
+                arrowHead(ctx, this.dimensions.headHeight, this.dimensions.chinHeight, this.dimensions.headWidth, true, false);
+                ctx.fill();
+            }
+            ctx.restore();
+        }
+
+        drawSelectionIndicator(ctx) {
+            const indicatorWidth = 10;
+            ctx.save();
+            ctx.beginPath();
+            this.shaft.draw(ctx);
+            ctx.lineWidth = this.dimensions.arrowWidth + indicatorWidth;
+            ctx.lineCap = 'round';
+            ctx.strokeStyle = this.dimensions.selectionColor;
+            ctx.stroke();
+            if (this.dimensions.hasArrowHead) {
+                ctx.translate(...this.endShaft.xy);
+                ctx.rotate(this.shaft.endDirection);
+                ctx.translate(this.dimensions.headHeight - this.dimensions.chinHeight, 0);
+                ctx.lineWidth = indicatorWidth;
+                ctx.lineJoin = 'round';
+                arrowHead(ctx, this.dimensions.headHeight, this.dimensions.chinHeight, this.dimensions.headWidth, false, true);
+                ctx.stroke();
+            }
+            ctx.restore();
+        }
+
+        midPoint() {
+            return this.midShaft
+        }
+
+        shaftAngle() {
+            return this.midShaftAngle
+        }
+
+        get arrowKind() {
+            return 'straight'
+        }
+    }
+
+    const computeArcRadius = (attachment) => {
+        return 40 + attachment.radiusOrdinal * 10
+    };
+
+    const relationshipArrowDimensions = (resolvedRelationship, graph, leftNode) => {
+        const style = styleKey => getStyleSelector(resolvedRelationship.relationship, styleKey, graph);
+        const startRadius = resolvedRelationship.from.radius + style('margin-start');
+        const endRadius = resolvedRelationship.to.radius + style('margin-end');
+        const arrowWidth = style('arrow-width');
+        const arrowColor = style('arrow-color');
+        const selectionColor = adaptForBackground(selectionBorder, style);
+
+        let hasArrowHead = false;
+        let headWidth = 0;
+        let headHeight = 0;
+        let chinHeight = 0;
+
+        const directionality = style('directionality');
+        if (directionality === 'directed') {
+            hasArrowHead = true;
+            headWidth = arrowWidth + 6 * Math.sqrt(arrowWidth);
+            headHeight = headWidth * 1.5;
+            chinHeight = headHeight / 10;
+        }
+
+        const separation = style('margin-peer');
+        const leftToRight = resolvedRelationship.from === leftNode;
+
+        return {
+            startRadius,
+            endRadius,
+            arrowWidth,
+            arrowColor,
+            selectionColor,
+            hasArrowHead,
+            headWidth,
+            headHeight,
+            chinHeight,
+            separation,
+            leftToRight
         }
     };
 
@@ -3705,154 +3813,6 @@
             });
         }
     }
-
-    class VisualGraph {
-        constructor(graph, nodes, relationshipBundles) {
-            this.graph = graph;
-            this.nodes = nodes;
-            this.relationshipBundles = relationshipBundles;
-        }
-
-        get style() {
-            return this.graph.style
-        }
-
-        entityAtPoint(point) {
-            const node = this.nodeAtPoint(point);
-            if (node) return { ...node,
-                entityType: 'node'
-            }
-
-            const nodeRing = this.nodeRingAtPoint(point);
-            if (nodeRing) return { ...nodeRing,
-                entityType: 'nodeRing'
-            }
-
-            const relationship = this.relationshipAtPoint(point);
-            if (relationship) return { ...relationship,
-                entityType: 'relationship'
-            }
-
-            return null
-        }
-
-        nodeAtPoint(point) {
-            return this.closestNode(point, (visualNode, distance) => {
-                return distance < visualNode.radius
-            })
-        }
-
-        nodeRingAtPoint(point) {
-            return this.closestNode(point, (visualNode, distance) => {
-                const nodeRadius = visualNode.radius;
-                return distance > nodeRadius && distance < nodeRadius + ringMargin
-            })
-        }
-
-        entitiesInBoundingBox(boundingBox) {
-            const nodes = this.graph.nodes.filter(node => boundingBox.contains(node.position))
-                .map(node => ({ ...node,
-                    entityType: 'node'
-                }));
-            const relationships = this.relationshipBundles.flatMap(bundle => bundle.routedRelationships)
-                .filter(routedRelationship => boundingBox.contains(routedRelationship.arrow.midPoint()))
-                .map(routedRelationship => routedRelationship.resolvedRelationship)
-                .map(relationship => ({ ...relationship,
-                    entityType: 'relationship'
-                }));
-
-            return [...nodes, ...relationships]
-        }
-
-        closestNode(point, hitTest) {
-            let closestDistance = Number.POSITIVE_INFINITY;
-            let closestNode = null;
-            this.graph.nodes.filter(node => node.status !== 'combined').forEach((node) => {
-                const visualNode = this.nodes[node.id];
-                const distance = visualNode.distanceFrom(point);
-                if (distance < closestDistance && hitTest(visualNode, distance)) {
-                    closestDistance = distance;
-                    closestNode = node;
-                }
-            });
-            return closestNode
-        }
-
-        relationshipAtPoint(point) {
-            return this.closestRelationship(point, (relationship, distance) => distance <= relationshipHitTolerance)
-        }
-
-        closestRelationship(point, hitTest) {
-            let minDistance = Number.POSITIVE_INFINITY;
-            let closestRelationship = null;
-            this.relationshipBundles.forEach(bundle => {
-                bundle.routedRelationships.forEach(routedRelationship => {
-                    const distance = routedRelationship.distanceFrom(point);
-                    if (distance < minDistance && hitTest(routedRelationship.resolvedRelationship, distance)) {
-                        minDistance = distance;
-                        closestRelationship = routedRelationship.resolvedRelationship;
-                    }
-                });
-            });
-
-            return closestRelationship
-        }
-
-        draw(ctx, displayOptions) {
-            ctx.save();
-            const viewTransformation = displayOptions.viewTransformation;
-            ctx.translate(viewTransformation.translateVector.dx, viewTransformation.translateVector.dy);
-            ctx.scale(viewTransformation.scale);
-            this.relationshipBundles.forEach(bundle => bundle.draw(ctx));
-            Object.values(this.nodes).forEach(visualNode => {
-                visualNode.draw(ctx);
-            });
-            ctx.restore();
-        }
-
-        boundingBox() {
-            const nodeBoxes = Object.values(this.nodes).map(node => node.boundingBox());
-            const relationshipBoxes = Object.values(this.relationshipBundles).map(bundle => bundle.boundingBox());
-            return combineBoundingBoxes([...nodeBoxes, ...relationshipBoxes])
-        }
-    }
-
-    class NodePair {
-        constructor(node1, node2, start, end) {
-            if (node1.id < node2.id) {
-                this.nodeA = node1;
-                this.attachA = start;
-                this.nodeB = node2;
-                this.attachB = end;
-            } else {
-                this.nodeA = node2;
-                this.attachA = end;
-                this.nodeB = node1;
-                this.attachB = start;
-            }
-        }
-
-        key() {
-            return `${this.nodeA.id}:${this.nodeB.id}:${attachKey(this.attachA)}:${attachKey(this.attachB)}`
-        }
-    }
-
-    const attachKey = (attach) => {
-        if (attach) {
-            return attach.attachment.name
-        }
-        return 'normal'
-    };
-
-    const bundle = (relationships) => {
-        const bundles = {};
-        relationships.forEach(r => {
-            const nodePair = new NodePair(r.from, r.to, r.startAttachment, r.endAttachment);
-            const bundle = bundles[nodePair.key()] || (bundles[nodePair.key()] = []);
-            bundle.push(r);
-        });
-        return Object.values(bundles)
-    };
 
     class CanvasAdaptor {
         constructor(ctx) {
@@ -4042,12 +4002,193 @@
         }
     }
 
+    const attachmentOptions = [{
+            name: 'top',
+            angle: -Math.PI / 2
+        },
+        {
+            name: 'right',
+            angle: 0
+        },
+        {
+            name: 'bottom',
+            angle: Math.PI / 2
+        },
+        {
+            name: 'left',
+            angle: Math.PI
+        }
+    ];
+
+    const computeRelationshipAttachments = (graph, visualNodes) => {
+        const nodeAttachments = {};
+        const countAttachment = (nodeId, attachmentOptionName) => {
+            const nodeCounters = nodeAttachments[nodeId] || (nodeAttachments[nodeId] = {});
+            nodeCounters[attachmentOptionName] = (nodeCounters[attachmentOptionName] || 0) + 1;
+        };
+
+        graph.relationships.forEach(relationship => {
+            const style = styleAttribute => getStyleSelector(relationship, styleAttribute, graph);
+            countAttachment(relationship.fromId, style('attachment-start'));
+            countAttachment(relationship.toId, style('attachment-end'));
+        });
+
+        const centralAttachment = (nodeId, attachmentOptionName) => {
+            const total = nodeAttachments[nodeId][attachmentOptionName];
+            return {
+                attachment: findOption(attachmentOptionName),
+                ordinal: (total - 1) / 2,
+                radiusOrdinal: 0,
+                minNormalDistance: 0,
+                total
+            }
+        };
+
+        const routedRelationships = graph.relationships.map(relationship => {
+            const style = styleAttribute => getStyleSelector(relationship, styleAttribute, graph);
+            const startAttachment = centralAttachment(relationship.fromId, style('attachment-start'));
+            const endAttachment = centralAttachment(relationship.toId, style('attachment-end'));
+
+            const resolvedRelationship = new ResolvedRelationship(
+                relationship,
+                visualNodes[relationship.fromId],
+                visualNodes[relationship.toId],
+                startAttachment,
+                endAttachment,
+                false,
+                graph
+            );
+
+            let arrow;
+            
+            if (startAttachment.attachment.name !== 'normal' || endAttachment.attachment.name !== 'normal') {
+                if (startAttachment.attachment.name !== 'normal' && endAttachment.attachment.name !== 'normal') {
+                    const dimensions = relationshipArrowDimensions(resolvedRelationship, graph, resolvedRelationship.from);
+                    arrow = new RectilinearArrow(
+                        resolvedRelationship.from.position,
+                        resolvedRelationship.to.position,
+                        dimensions.startRadius,
+                        dimensions.endRadius,
+                        resolvedRelationship.startAttachment,
+                        resolvedRelationship.endAttachment,
+                        dimensions
+                    );
+                } else {
+                    const dimensions = relationshipArrowDimensions(resolvedRelationship, graph, resolvedRelationship.from);
+                    arrow = new ElbowArrow(
+                        resolvedRelationship.from.position,
+                        resolvedRelationship.to.position,
+                        dimensions.startRadius,
+                        dimensions.endRadius,
+                        resolvedRelationship.startAttachment,
+                        resolvedRelationship.endAttachment,
+                        dimensions
+                    );
+                }
+            }
+            return {
+                resolvedRelationship,
+                arrow
+            }
+        });
+
+        const relationshipAttachments = {
+            start: {},
+            end: {}
+        };
+        graph.nodes.forEach(node => {
+            const relationships = routedRelationships
+                .filter(routedRelationship =>
+                    node.id === routedRelationship.resolvedRelationship.from.id ||
+                    node.id === routedRelationship.resolvedRelationship.to.id);
+
+            attachmentOptions.forEach(option => {
+                const relevantRelationships = relationships.filter(routedRelationship => {
+                    const startAttachment = routedRelationship.resolvedRelationship.startAttachment;
+                    const endAttachment = routedRelationship.resolvedRelationship.endAttachment;
+                    return (startAttachment.attachment === option && node.id === routedRelationship.resolvedRelationship.from.id) ||
+                        (endAttachment.attachment === option && node.id === routedRelationship.resolvedRelationship.to.id)
+                });
+
+                const neighbours = relevantRelationships.map(routedRelationship => {
+                    const direction = (
+                        routedRelationship.resolvedRelationship.from.id === node.id &&
+                        routedRelationship.resolvedRelationship.startAttachment.attachment === option
+                    ) ? 'start' : 'end';
+                    let path, headSpace = 0;
+                    if (routedRelationship.arrow) {
+                        if (direction === 'end') {
+                            const dimensions = routedRelationship.arrow.dimensions;
+                            headSpace = dimensions.headHeight - dimensions.chinHeight;
+                        }
+                        if (routedRelationship.arrow.path && routedRelationship.arrow.path.waypoints) {
+                            if (direction === 'start') {
+                                path = routedRelationship.arrow.path;
+                            } else {
+                                path = routedRelationship.arrow.path.inverse();
+                            }
+                        }
+                    }
+
+                    return {
+                        relationship: routedRelationship.resolvedRelationship.relationship,
+                        direction,
+                        path,
+                        headSpace
+                    }
+                });
+
+                const maxHeadSpace = Math.max(...neighbours.map(neighbour => neighbour.headSpace));
+
+                neighbours.sort((a, b) => {
+                    return (a.path && b.path) ? compareWaypoints(a.path.waypoints, b.path.waypoints) : 0
+                });
+                
+                neighbours.forEach((neighbour, i) => {
+                    relationshipAttachments[neighbour.direction][neighbour.relationship.id] = {
+                        attachment: option,
+                        ordinal: i,
+                        radiusOrdinal: computeRadiusOrdinal(neighbour.path, i, neighbours.length),
+                        minNormalDistance: maxHeadSpace,
+                        total: neighbours.length
+                    };
+                });
+            });
+        });
+
+        return relationshipAttachments
+    };
+
+    const findOption = (optionName) => {
+        return attachmentOptions.find(option => option.name === optionName) || {
+            name: 'normal'
+        }
+    };
+
+    const computeRadiusOrdinal = (path, ordinal, total) => {
+        if (path) {
+            const polarity = path.polarity;
+
+            switch (polarity) {
+                case -1:
+                    return ordinal
+
+                case 1:
+                    return total - ordinal - 1
+
+                default:
+                    return Math.max(ordinal, total - ordinal - 1)
+            }
+        }
+        return 0
+    };
+
     const measureTextContext = (() => {
         const canvas = window.document.createElement('canvas');
         return new CanvasAdaptor(canvas.getContext('2d'))
     })();
 
-    function getVisualNode(node, graph, selection, cachedImages) {
+    const getVisualNode = (node, graph, selection, cachedImages) => {
         return new VisualNode(
             node,
             graph,
@@ -4056,9 +4197,9 @@
             measureTextContext,
             cachedImages
         )
-    }
+    };
 
-    function getVisualGraph(graph, selection, cachedImages) {
+    const getVisualGraph = (graph, selection, cachedImages) => {
         // node -> VisualNode
         const visualNodes = graph.nodes.reduce((nodeMap, node) => {
             nodeMap[node.id] = getVisualNode(node, graph, selection, cachedImages);
@@ -4089,7 +4230,7 @@
 
         // 可视化图
         return new VisualGraph(graph, visualNodes, relationshipBundles, measureTextContext)
-    }
+    };
 
     const canvasPadding = 50;
 
@@ -4248,6 +4389,1763 @@
     //     }
     // }
 
+    var commonjsGlobal = typeof globalThis !== 'undefined' ? globalThis : typeof window !== 'undefined' ? window : typeof global !== 'undefined' ? global : typeof self !== 'undefined' ? self : {};
+
+    function getDefaultExportFromCjs (x) {
+    	return x && x.__esModule && Object.prototype.hasOwnProperty.call(x, 'default') ? x['default'] : x;
+    }
+
+    var redux = {exports: {}};
+
+    (function (module, exports) {
+    	(function (global, factory) {
+    	factory(exports) ;
+    	}(commonjsGlobal, (function (exports) {
+    	// Inlined version of the `symbol-observable` polyfill
+    	var $$observable = (function () {
+    	  return typeof Symbol === 'function' && Symbol.observable || '@@observable';
+    	})();
+
+    	/**
+    	 * These are private action types reserved by Redux.
+    	 * For any unknown actions, you must return the current state.
+    	 * If the current state is undefined, you must return the initial state.
+    	 * Do not reference these action types directly in your code.
+    	 */
+    	var randomString = function randomString() {
+    	  return Math.random().toString(36).substring(7).split('').join('.');
+    	};
+
+    	var ActionTypes = {
+    	  INIT: "@@redux/INIT" + randomString(),
+    	  REPLACE: "@@redux/REPLACE" + randomString(),
+    	  PROBE_UNKNOWN_ACTION: function PROBE_UNKNOWN_ACTION() {
+    	    return "@@redux/PROBE_UNKNOWN_ACTION" + randomString();
+    	  }
+    	};
+
+    	/**
+    	 * @param {any} obj The object to inspect.
+    	 * @returns {boolean} True if the argument appears to be a plain object.
+    	 */
+    	function isPlainObject(obj) {
+    	  if (typeof obj !== 'object' || obj === null) return false;
+    	  var proto = obj;
+
+    	  while (Object.getPrototypeOf(proto) !== null) {
+    	    proto = Object.getPrototypeOf(proto);
+    	  }
+
+    	  return Object.getPrototypeOf(obj) === proto;
+    	}
+
+    	// Inlined / shortened version of `kindOf` from https://github.com/jonschlinkert/kind-of
+    	function miniKindOf(val) {
+    	  if (val === void 0) return 'undefined';
+    	  if (val === null) return 'null';
+    	  var type = typeof val;
+
+    	  switch (type) {
+    	    case 'boolean':
+    	    case 'string':
+    	    case 'number':
+    	    case 'symbol':
+    	    case 'function':
+    	      {
+    	        return type;
+    	      }
+    	  }
+
+    	  if (Array.isArray(val)) return 'array';
+    	  if (isDate(val)) return 'date';
+    	  if (isError(val)) return 'error';
+    	  var constructorName = ctorName(val);
+
+    	  switch (constructorName) {
+    	    case 'Symbol':
+    	    case 'Promise':
+    	    case 'WeakMap':
+    	    case 'WeakSet':
+    	    case 'Map':
+    	    case 'Set':
+    	      return constructorName;
+    	  } // other
+
+
+    	  return type.slice(8, -1).toLowerCase().replace(/\s/g, '');
+    	}
+
+    	function ctorName(val) {
+    	  return typeof val.constructor === 'function' ? val.constructor.name : null;
+    	}
+
+    	function isError(val) {
+    	  return val instanceof Error || typeof val.message === 'string' && val.constructor && typeof val.constructor.stackTraceLimit === 'number';
+    	}
+
+    	function isDate(val) {
+    	  if (val instanceof Date) return true;
+    	  return typeof val.toDateString === 'function' && typeof val.getDate === 'function' && typeof val.setDate === 'function';
+    	}
+
+    	function kindOf(val) {
+    	  var typeOfVal = typeof val;
+
+    	  {
+    	    typeOfVal = miniKindOf(val);
+    	  }
+
+    	  return typeOfVal;
+    	}
+
+    	/**
+    	 * @deprecated
+    	 *
+    	 * **We recommend using the `configureStore` method
+    	 * of the `@reduxjs/toolkit` package**, which replaces `createStore`.
+    	 *
+    	 * Redux Toolkit is our recommended approach for writing Redux logic today,
+    	 * including store setup, reducers, data fetching, and more.
+    	 *
+    	 * **For more details, please read this Redux docs page:**
+    	 * **https://redux.js.org/introduction/why-rtk-is-redux-today**
+    	 *
+    	 * `configureStore` from Redux Toolkit is an improved version of `createStore` that
+    	 * simplifies setup and helps avoid common bugs.
+    	 *
+    	 * You should not be using the `redux` core package by itself today, except for learning purposes.
+    	 * The `createStore` method from the core `redux` package will not be removed, but we encourage
+    	 * all users to migrate to using Redux Toolkit for all Redux code.
+    	 *
+    	 * If you want to use `createStore` without this visual deprecation warning, use
+    	 * the `legacy_createStore` import instead:
+    	 *
+    	 * `import { legacy_createStore as createStore} from 'redux'`
+    	 *
+    	 */
+
+    	function createStore(reducer, preloadedState, enhancer) {
+    	  var _ref2;
+
+    	  if (typeof preloadedState === 'function' && typeof enhancer === 'function' || typeof enhancer === 'function' && typeof arguments[3] === 'function') {
+    	    throw new Error('It looks like you are passing several store enhancers to ' + 'createStore(). This is not supported. Instead, compose them ' + 'together to a single function. See https://redux.js.org/tutorials/fundamentals/part-4-store#creating-a-store-with-enhancers for an example.');
+    	  }
+
+    	  if (typeof preloadedState === 'function' && typeof enhancer === 'undefined') {
+    	    enhancer = preloadedState;
+    	    preloadedState = undefined;
+    	  }
+
+    	  if (typeof enhancer !== 'undefined') {
+    	    if (typeof enhancer !== 'function') {
+    	      throw new Error("Expected the enhancer to be a function. Instead, received: '" + kindOf(enhancer) + "'");
+    	    }
+
+    	    return enhancer(createStore)(reducer, preloadedState);
+    	  }
+
+    	  if (typeof reducer !== 'function') {
+    	    throw new Error("Expected the root reducer to be a function. Instead, received: '" + kindOf(reducer) + "'");
+    	  }
+
+    	  var currentReducer = reducer;
+    	  var currentState = preloadedState;
+    	  var currentListeners = [];
+    	  var nextListeners = currentListeners;
+    	  var isDispatching = false;
+    	  /**
+    	   * This makes a shallow copy of currentListeners so we can use
+    	   * nextListeners as a temporary list while dispatching.
+    	   *
+    	   * This prevents any bugs around consumers calling
+    	   * subscribe/unsubscribe in the middle of a dispatch.
+    	   */
+
+    	  function ensureCanMutateNextListeners() {
+    	    if (nextListeners === currentListeners) {
+    	      nextListeners = currentListeners.slice();
+    	    }
+    	  }
+    	  /**
+    	   * Reads the state tree managed by the store.
+    	   *
+    	   * @returns {any} The current state tree of your application.
+    	   */
+
+
+    	  function getState() {
+    	    if (isDispatching) {
+    	      throw new Error('You may not call store.getState() while the reducer is executing. ' + 'The reducer has already received the state as an argument. ' + 'Pass it down from the top reducer instead of reading it from the store.');
+    	    }
+
+    	    return currentState;
+    	  }
+    	  /**
+    	   * Adds a change listener. It will be called any time an action is dispatched,
+    	   * and some part of the state tree may potentially have changed. You may then
+    	   * call `getState()` to read the current state tree inside the callback.
+    	   *
+    	   * You may call `dispatch()` from a change listener, with the following
+    	   * caveats:
+    	   *
+    	   * 1. The subscriptions are snapshotted just before every `dispatch()` call.
+    	   * If you subscribe or unsubscribe while the listeners are being invoked, this
+    	   * will not have any effect on the `dispatch()` that is currently in progress.
+    	   * However, the next `dispatch()` call, whether nested or not, will use a more
+    	   * recent snapshot of the subscription list.
+    	   *
+    	   * 2. The listener should not expect to see all state changes, as the state
+    	   * might have been updated multiple times during a nested `dispatch()` before
+    	   * the listener is called. It is, however, guaranteed that all subscribers
+    	   * registered before the `dispatch()` started will be called with the latest
+    	   * state by the time it exits.
+    	   *
+    	   * @param {Function} listener A callback to be invoked on every dispatch.
+    	   * @returns {Function} A function to remove this change listener.
+    	   */
+
+
+    	  function subscribe(listener) {
+    	    if (typeof listener !== 'function') {
+    	      throw new Error("Expected the listener to be a function. Instead, received: '" + kindOf(listener) + "'");
+    	    }
+
+    	    if (isDispatching) {
+    	      throw new Error('You may not call store.subscribe() while the reducer is executing. ' + 'If you would like to be notified after the store has been updated, subscribe from a ' + 'component and invoke store.getState() in the callback to access the latest state. ' + 'See https://redux.js.org/api/store#subscribelistener for more details.');
+    	    }
+
+    	    var isSubscribed = true;
+    	    ensureCanMutateNextListeners();
+    	    nextListeners.push(listener);
+    	    return function unsubscribe() {
+    	      if (!isSubscribed) {
+    	        return;
+    	      }
+
+    	      if (isDispatching) {
+    	        throw new Error('You may not unsubscribe from a store listener while the reducer is executing. ' + 'See https://redux.js.org/api/store#subscribelistener for more details.');
+    	      }
+
+    	      isSubscribed = false;
+    	      ensureCanMutateNextListeners();
+    	      var index = nextListeners.indexOf(listener);
+    	      nextListeners.splice(index, 1);
+    	      currentListeners = null;
+    	    };
+    	  }
+    	  /**
+    	   * Dispatches an action. It is the only way to trigger a state change.
+    	   *
+    	   * The `reducer` function, used to create the store, will be called with the
+    	   * current state tree and the given `action`. Its return value will
+    	   * be considered the **next** state of the tree, and the change listeners
+    	   * will be notified.
+    	   *
+    	   * The base implementation only supports plain object actions. If you want to
+    	   * dispatch a Promise, an Observable, a thunk, or something else, you need to
+    	   * wrap your store creating function into the corresponding middleware. For
+    	   * example, see the documentation for the `redux-thunk` package. Even the
+    	   * middleware will eventually dispatch plain object actions using this method.
+    	   *
+    	   * @param {Object} action A plain object representing “what changed”. It is
+    	   * a good idea to keep actions serializable so you can record and replay user
+    	   * sessions, or use the time travelling `redux-devtools`. An action must have
+    	   * a `type` property which may not be `undefined`. It is a good idea to use
+    	   * string constants for action types.
+    	   *
+    	   * @returns {Object} For convenience, the same action object you dispatched.
+    	   *
+    	   * Note that, if you use a custom middleware, it may wrap `dispatch()` to
+    	   * return something else (for example, a Promise you can await).
+    	   */
+
+
+    	  function dispatch(action) {
+    	    if (!isPlainObject(action)) {
+    	      throw new Error("Actions must be plain objects. Instead, the actual type was: '" + kindOf(action) + "'. You may need to add middleware to your store setup to handle dispatching other values, such as 'redux-thunk' to handle dispatching functions. See https://redux.js.org/tutorials/fundamentals/part-4-store#middleware and https://redux.js.org/tutorials/fundamentals/part-6-async-logic#using-the-redux-thunk-middleware for examples.");
+    	    }
+
+    	    if (typeof action.type === 'undefined') {
+    	      throw new Error('Actions may not have an undefined "type" property. You may have misspelled an action type string constant.');
+    	    }
+
+    	    if (isDispatching) {
+    	      throw new Error('Reducers may not dispatch actions.');
+    	    }
+
+    	    try {
+    	      isDispatching = true;
+    	      currentState = currentReducer(currentState, action);
+    	    } finally {
+    	      isDispatching = false;
+    	    }
+
+    	    var listeners = currentListeners = nextListeners;
+
+    	    for (var i = 0; i < listeners.length; i++) {
+    	      var listener = listeners[i];
+    	      listener();
+    	    }
+
+    	    return action;
+    	  }
+    	  /**
+    	   * Replaces the reducer currently used by the store to calculate the state.
+    	   *
+    	   * You might need this if your app implements code splitting and you want to
+    	   * load some of the reducers dynamically. You might also need this if you
+    	   * implement a hot reloading mechanism for Redux.
+    	   *
+    	   * @param {Function} nextReducer The reducer for the store to use instead.
+    	   * @returns {void}
+    	   */
+
+
+    	  function replaceReducer(nextReducer) {
+    	    if (typeof nextReducer !== 'function') {
+    	      throw new Error("Expected the nextReducer to be a function. Instead, received: '" + kindOf(nextReducer));
+    	    }
+
+    	    currentReducer = nextReducer; // This action has a similiar effect to ActionTypes.INIT.
+    	    // Any reducers that existed in both the new and old rootReducer
+    	    // will receive the previous state. This effectively populates
+    	    // the new state tree with any relevant data from the old one.
+
+    	    dispatch({
+    	      type: ActionTypes.REPLACE
+    	    });
+    	  }
+    	  /**
+    	   * Interoperability point for observable/reactive libraries.
+    	   * @returns {observable} A minimal observable of state changes.
+    	   * For more information, see the observable proposal:
+    	   * https://github.com/tc39/proposal-observable
+    	   */
+
+
+    	  function observable() {
+    	    var _ref;
+
+    	    var outerSubscribe = subscribe;
+    	    return _ref = {
+    	      /**
+    	       * The minimal observable subscription method.
+    	       * @param {Object} observer Any object that can be used as an observer.
+    	       * The observer object should have a `next` method.
+    	       * @returns {subscription} An object with an `unsubscribe` method that can
+    	       * be used to unsubscribe the observable from the store, and prevent further
+    	       * emission of values from the observable.
+    	       */
+    	      subscribe: function subscribe(observer) {
+    	        if (typeof observer !== 'object' || observer === null) {
+    	          throw new Error("Expected the observer to be an object. Instead, received: '" + kindOf(observer) + "'");
+    	        }
+
+    	        function observeState() {
+    	          if (observer.next) {
+    	            observer.next(getState());
+    	          }
+    	        }
+
+    	        observeState();
+    	        var unsubscribe = outerSubscribe(observeState);
+    	        return {
+    	          unsubscribe: unsubscribe
+    	        };
+    	      }
+    	    }, _ref[$$observable] = function () {
+    	      return this;
+    	    }, _ref;
+    	  } // When a store is created, an "INIT" action is dispatched so that every
+    	  // reducer returns their initial state. This effectively populates
+    	  // the initial state tree.
+
+
+    	  dispatch({
+    	    type: ActionTypes.INIT
+    	  });
+    	  return _ref2 = {
+    	    dispatch: dispatch,
+    	    subscribe: subscribe,
+    	    getState: getState,
+    	    replaceReducer: replaceReducer
+    	  }, _ref2[$$observable] = observable, _ref2;
+    	}
+    	/**
+    	 * Creates a Redux store that holds the state tree.
+    	 *
+    	 * **We recommend using `configureStore` from the
+    	 * `@reduxjs/toolkit` package**, which replaces `createStore`:
+    	 * **https://redux.js.org/introduction/why-rtk-is-redux-today**
+    	 *
+    	 * The only way to change the data in the store is to call `dispatch()` on it.
+    	 *
+    	 * There should only be a single store in your app. To specify how different
+    	 * parts of the state tree respond to actions, you may combine several reducers
+    	 * into a single reducer function by using `combineReducers`.
+    	 *
+    	 * @param {Function} reducer A function that returns the next state tree, given
+    	 * the current state tree and the action to handle.
+    	 *
+    	 * @param {any} [preloadedState] The initial state. You may optionally specify it
+    	 * to hydrate the state from the server in universal apps, or to restore a
+    	 * previously serialized user session.
+    	 * If you use `combineReducers` to produce the root reducer function, this must be
+    	 * an object with the same shape as `combineReducers` keys.
+    	 *
+    	 * @param {Function} [enhancer] The store enhancer. You may optionally specify it
+    	 * to enhance the store with third-party capabilities such as middleware,
+    	 * time travel, persistence, etc. The only store enhancer that ships with Redux
+    	 * is `applyMiddleware()`.
+    	 *
+    	 * @returns {Store} A Redux store that lets you read the state, dispatch actions
+    	 * and subscribe to changes.
+    	 */
+
+    	var legacy_createStore = createStore;
+
+    	/**
+    	 * Prints a warning in the console if it exists.
+    	 *
+    	 * @param {String} message The warning message.
+    	 * @returns {void}
+    	 */
+    	function warning(message) {
+    	  /* eslint-disable no-console */
+    	  if (typeof console !== 'undefined' && typeof console.error === 'function') {
+    	    console.error(message);
+    	  }
+    	  /* eslint-enable no-console */
+
+
+    	  try {
+    	    // This error was thrown as a convenience so that if you enable
+    	    // "break on all exceptions" in your console,
+    	    // it would pause the execution at this line.
+    	    throw new Error(message);
+    	  } catch (e) {} // eslint-disable-line no-empty
+
+    	}
+
+    	function getUnexpectedStateShapeWarningMessage(inputState, reducers, action, unexpectedKeyCache) {
+    	  var reducerKeys = Object.keys(reducers);
+    	  var argumentName = action && action.type === ActionTypes.INIT ? 'preloadedState argument passed to createStore' : 'previous state received by the reducer';
+
+    	  if (reducerKeys.length === 0) {
+    	    return 'Store does not have a valid reducer. Make sure the argument passed ' + 'to combineReducers is an object whose values are reducers.';
+    	  }
+
+    	  if (!isPlainObject(inputState)) {
+    	    return "The " + argumentName + " has unexpected type of \"" + kindOf(inputState) + "\". Expected argument to be an object with the following " + ("keys: \"" + reducerKeys.join('", "') + "\"");
+    	  }
+
+    	  var unexpectedKeys = Object.keys(inputState).filter(function (key) {
+    	    return !reducers.hasOwnProperty(key) && !unexpectedKeyCache[key];
+    	  });
+    	  unexpectedKeys.forEach(function (key) {
+    	    unexpectedKeyCache[key] = true;
+    	  });
+    	  if (action && action.type === ActionTypes.REPLACE) return;
+
+    	  if (unexpectedKeys.length > 0) {
+    	    return "Unexpected " + (unexpectedKeys.length > 1 ? 'keys' : 'key') + " " + ("\"" + unexpectedKeys.join('", "') + "\" found in " + argumentName + ". ") + "Expected to find one of the known reducer keys instead: " + ("\"" + reducerKeys.join('", "') + "\". Unexpected keys will be ignored.");
+    	  }
+    	}
+
+    	function assertReducerShape(reducers) {
+    	  Object.keys(reducers).forEach(function (key) {
+    	    var reducer = reducers[key];
+    	    var initialState = reducer(undefined, {
+    	      type: ActionTypes.INIT
+    	    });
+
+    	    if (typeof initialState === 'undefined') {
+    	      throw new Error("The slice reducer for key \"" + key + "\" returned undefined during initialization. " + "If the state passed to the reducer is undefined, you must " + "explicitly return the initial state. The initial state may " + "not be undefined. If you don't want to set a value for this reducer, " + "you can use null instead of undefined.");
+    	    }
+
+    	    if (typeof reducer(undefined, {
+    	      type: ActionTypes.PROBE_UNKNOWN_ACTION()
+    	    }) === 'undefined') {
+    	      throw new Error("The slice reducer for key \"" + key + "\" returned undefined when probed with a random type. " + ("Don't try to handle '" + ActionTypes.INIT + "' or other actions in \"redux/*\" ") + "namespace. They are considered private. Instead, you must return the " + "current state for any unknown actions, unless it is undefined, " + "in which case you must return the initial state, regardless of the " + "action type. The initial state may not be undefined, but can be null.");
+    	    }
+    	  });
+    	}
+    	/**
+    	 * Turns an object whose values are different reducer functions, into a single
+    	 * reducer function. It will call every child reducer, and gather their results
+    	 * into a single state object, whose keys correspond to the keys of the passed
+    	 * reducer functions.
+    	 *
+    	 * @param {Object} reducers An object whose values correspond to different
+    	 * reducer functions that need to be combined into one. One handy way to obtain
+    	 * it is to use ES6 `import * as reducers` syntax. The reducers may never return
+    	 * undefined for any action. Instead, they should return their initial state
+    	 * if the state passed to them was undefined, and the current state for any
+    	 * unrecognized action.
+    	 *
+    	 * @returns {Function} A reducer function that invokes every reducer inside the
+    	 * passed object, and builds a state object with the same shape.
+    	 */
+
+
+    	function combineReducers(reducers) {
+    	  var reducerKeys = Object.keys(reducers);
+    	  var finalReducers = {};
+
+    	  for (var i = 0; i < reducerKeys.length; i++) {
+    	    var key = reducerKeys[i];
+
+    	    {
+    	      if (typeof reducers[key] === 'undefined') {
+    	        warning("No reducer provided for key \"" + key + "\"");
+    	      }
+    	    }
+
+    	    if (typeof reducers[key] === 'function') {
+    	      finalReducers[key] = reducers[key];
+    	    }
+    	  }
+
+    	  var finalReducerKeys = Object.keys(finalReducers); // This is used to make sure we don't warn about the same
+    	  // keys multiple times.
+
+    	  var unexpectedKeyCache;
+
+    	  {
+    	    unexpectedKeyCache = {};
+    	  }
+
+    	  var shapeAssertionError;
+
+    	  try {
+    	    assertReducerShape(finalReducers);
+    	  } catch (e) {
+    	    shapeAssertionError = e;
+    	  }
+
+    	  return function combination(state, action) {
+    	    if (state === void 0) {
+    	      state = {};
+    	    }
+
+    	    if (shapeAssertionError) {
+    	      throw shapeAssertionError;
+    	    }
+
+    	    {
+    	      var warningMessage = getUnexpectedStateShapeWarningMessage(state, finalReducers, action, unexpectedKeyCache);
+
+    	      if (warningMessage) {
+    	        warning(warningMessage);
+    	      }
+    	    }
+
+    	    var hasChanged = false;
+    	    var nextState = {};
+
+    	    for (var _i = 0; _i < finalReducerKeys.length; _i++) {
+    	      var _key = finalReducerKeys[_i];
+    	      var reducer = finalReducers[_key];
+    	      var previousStateForKey = state[_key];
+    	      var nextStateForKey = reducer(previousStateForKey, action);
+
+    	      if (typeof nextStateForKey === 'undefined') {
+    	        var actionType = action && action.type;
+    	        throw new Error("When called with an action of type " + (actionType ? "\"" + String(actionType) + "\"" : '(unknown type)') + ", the slice reducer for key \"" + _key + "\" returned undefined. " + "To ignore an action, you must explicitly return the previous state. " + "If you want this reducer to hold no value, you can return null instead of undefined.");
+    	      }
+
+    	      nextState[_key] = nextStateForKey;
+    	      hasChanged = hasChanged || nextStateForKey !== previousStateForKey;
+    	    }
+
+    	    hasChanged = hasChanged || finalReducerKeys.length !== Object.keys(state).length;
+    	    return hasChanged ? nextState : state;
+    	  };
+    	}
+
+    	function bindActionCreator(actionCreator, dispatch) {
+    	  return function () {
+    	    return dispatch(actionCreator.apply(this, arguments));
+    	  };
+    	}
+    	/**
+    	 * Turns an object whose values are action creators, into an object with the
+    	 * same keys, but with every function wrapped into a `dispatch` call so they
+    	 * may be invoked directly. This is just a convenience method, as you can call
+    	 * `store.dispatch(MyActionCreators.doSomething())` yourself just fine.
+    	 *
+    	 * For convenience, you can also pass an action creator as the first argument,
+    	 * and get a dispatch wrapped function in return.
+    	 *
+    	 * @param {Function|Object} actionCreators An object whose values are action
+    	 * creator functions. One handy way to obtain it is to use ES6 `import * as`
+    	 * syntax. You may also pass a single function.
+    	 *
+    	 * @param {Function} dispatch The `dispatch` function available on your Redux
+    	 * store.
+    	 *
+    	 * @returns {Function|Object} The object mimicking the original object, but with
+    	 * every action creator wrapped into the `dispatch` call. If you passed a
+    	 * function as `actionCreators`, the return value will also be a single
+    	 * function.
+    	 */
+
+
+    	function bindActionCreators(actionCreators, dispatch) {
+    	  if (typeof actionCreators === 'function') {
+    	    return bindActionCreator(actionCreators, dispatch);
+    	  }
+
+    	  if (typeof actionCreators !== 'object' || actionCreators === null) {
+    	    throw new Error("bindActionCreators expected an object or a function, but instead received: '" + kindOf(actionCreators) + "'. " + "Did you write \"import ActionCreators from\" instead of \"import * as ActionCreators from\"?");
+    	  }
+
+    	  var boundActionCreators = {};
+
+    	  for (var key in actionCreators) {
+    	    var actionCreator = actionCreators[key];
+
+    	    if (typeof actionCreator === 'function') {
+    	      boundActionCreators[key] = bindActionCreator(actionCreator, dispatch);
+    	    }
+    	  }
+
+    	  return boundActionCreators;
+    	}
+
+    	function _defineProperty(obj, key, value) {
+    	  if (key in obj) {
+    	    Object.defineProperty(obj, key, {
+    	      value: value,
+    	      enumerable: true,
+    	      configurable: true,
+    	      writable: true
+    	    });
+    	  } else {
+    	    obj[key] = value;
+    	  }
+
+    	  return obj;
+    	}
+
+    	function ownKeys(object, enumerableOnly) {
+    	  var keys = Object.keys(object);
+
+    	  if (Object.getOwnPropertySymbols) {
+    	    var symbols = Object.getOwnPropertySymbols(object);
+    	    if (enumerableOnly) symbols = symbols.filter(function (sym) {
+    	      return Object.getOwnPropertyDescriptor(object, sym).enumerable;
+    	    });
+    	    keys.push.apply(keys, symbols);
+    	  }
+
+    	  return keys;
+    	}
+
+    	function _objectSpread2(target) {
+    	  for (var i = 1; i < arguments.length; i++) {
+    	    var source = arguments[i] != null ? arguments[i] : {};
+
+    	    if (i % 2) {
+    	      ownKeys(Object(source), true).forEach(function (key) {
+    	        _defineProperty(target, key, source[key]);
+    	      });
+    	    } else if (Object.getOwnPropertyDescriptors) {
+    	      Object.defineProperties(target, Object.getOwnPropertyDescriptors(source));
+    	    } else {
+    	      ownKeys(Object(source)).forEach(function (key) {
+    	        Object.defineProperty(target, key, Object.getOwnPropertyDescriptor(source, key));
+    	      });
+    	    }
+    	  }
+
+    	  return target;
+    	}
+
+    	/**
+    	 * Composes single-argument functions from right to left. The rightmost
+    	 * function can take multiple arguments as it provides the signature for
+    	 * the resulting composite function.
+    	 *
+    	 * @param {...Function} funcs The functions to compose.
+    	 * @returns {Function} A function obtained by composing the argument functions
+    	 * from right to left. For example, compose(f, g, h) is identical to doing
+    	 * (...args) => f(g(h(...args))).
+    	 */
+    	function compose() {
+    	  for (var _len = arguments.length, funcs = new Array(_len), _key = 0; _key < _len; _key++) {
+    	    funcs[_key] = arguments[_key];
+    	  }
+
+    	  if (funcs.length === 0) {
+    	    return function (arg) {
+    	      return arg;
+    	    };
+    	  }
+
+    	  if (funcs.length === 1) {
+    	    return funcs[0];
+    	  }
+
+    	  return funcs.reduce(function (a, b) {
+    	    return function () {
+    	      return a(b.apply(void 0, arguments));
+    	    };
+    	  });
+    	}
+
+    	/**
+    	 * Creates a store enhancer that applies middleware to the dispatch method
+    	 * of the Redux store. This is handy for a variety of tasks, such as expressing
+    	 * asynchronous actions in a concise manner, or logging every action payload.
+    	 *
+    	 * See `redux-thunk` package as an example of the Redux middleware.
+    	 *
+    	 * Because middleware is potentially asynchronous, this should be the first
+    	 * store enhancer in the composition chain.
+    	 *
+    	 * Note that each middleware will be given the `dispatch` and `getState` functions
+    	 * as named arguments.
+    	 *
+    	 * @param {...Function} middlewares The middleware chain to be applied.
+    	 * @returns {Function} A store enhancer applying the middleware.
+    	 */
+
+    	function applyMiddleware() {
+    	  for (var _len = arguments.length, middlewares = new Array(_len), _key = 0; _key < _len; _key++) {
+    	    middlewares[_key] = arguments[_key];
+    	  }
+
+    	  return function (createStore) {
+    	    return function () {
+    	      var store = createStore.apply(void 0, arguments);
+
+    	      var _dispatch = function dispatch() {
+    	        throw new Error('Dispatching while constructing your middleware is not allowed. ' + 'Other middleware would not be applied to this dispatch.');
+    	      };
+
+    	      var middlewareAPI = {
+    	        getState: store.getState,
+    	        dispatch: function dispatch() {
+    	          return _dispatch.apply(void 0, arguments);
+    	        }
+    	      };
+    	      var chain = middlewares.map(function (middleware) {
+    	        return middleware(middlewareAPI);
+    	      });
+    	      _dispatch = compose.apply(void 0, chain)(store.dispatch);
+    	      return _objectSpread2(_objectSpread2({}, store), {}, {
+    	        dispatch: _dispatch
+    	      });
+    	    };
+    	  };
+    	}
+
+    	/*
+    	 * This is a dummy function to check if the function name has been altered by minification.
+    	 * If the function has been minified and NODE_ENV !== 'production', warn the user.
+    	 */
+
+    	function isCrushed() {}
+
+    	if (typeof isCrushed.name === 'string' && isCrushed.name !== 'isCrushed') {
+    	  warning('You are currently using minified code outside of NODE_ENV === "production". ' + 'This means that you are running a slower development build of Redux. ' + 'You can use loose-envify (https://github.com/zertosh/loose-envify) for browserify ' + 'or setting mode to production in webpack (https://webpack.js.org/concepts/mode/) ' + 'to ensure you have the correct code for your production build.');
+    	}
+
+    	exports.__DO_NOT_USE__ActionTypes = ActionTypes;
+    	exports.applyMiddleware = applyMiddleware;
+    	exports.bindActionCreators = bindActionCreators;
+    	exports.combineReducers = combineReducers;
+    	exports.compose = compose;
+    	exports.createStore = createStore;
+    	exports.legacy_createStore = legacy_createStore;
+
+    	Object.defineProperty(exports, '__esModule', { value: true });
+
+    	})));
+    } (redux, redux.exports));
+
+    const defaultName = 'Untitled graph';
+
+    const diagramName = (state = defaultName, action) => {
+        switch (action.type) {
+            case 'NEW_GOOGLE_DRIVE_DIAGRAM':
+            case 'NEW_LOCAL_STORAGE_DIAGRAM':
+                return defaultName
+
+            case 'SAVE_AS_GOOGLE_DRIVE_DIAGRAM':
+            case 'SAVE_AS_LOCAL_STORAGE_DIAGRAM':
+            case 'GETTING_DIAGRAM_NAME_SUCCEEDED':
+            case 'RENAME_DIAGRAM':
+                return action.diagramName
+
+            default:
+                return state
+        }
+    };
+
+    var reduxUndo = {exports: {}};
+
+    (function (module, exports) {
+    	!function(t,e){module.exports=e();}(window,(function(){return function(t){var e={};function n(r){if(e[r])return e[r].exports;var o=e[r]={i:r,l:!1,exports:{}};return t[r].call(o.exports,o,o.exports,n),o.l=!0,o.exports}return n.m=t,n.c=e,n.d=function(t,e,r){n.o(t,e)||Object.defineProperty(t,e,{enumerable:!0,get:r});},n.r=function(t){"undefined"!=typeof Symbol&&Symbol.toStringTag&&Object.defineProperty(t,Symbol.toStringTag,{value:"Module"}),Object.defineProperty(t,"__esModule",{value:!0});},n.t=function(t,e){if(1&e&&(t=n(t)),8&e)return t;if(4&e&&"object"==typeof t&&t&&t.__esModule)return t;var r=Object.create(null);if(n.r(r),Object.defineProperty(r,"default",{enumerable:!0,value:t}),2&e&&"string"!=typeof t)for(var o in t)n.d(r,o,function(e){return t[e]}.bind(null,o));return r},n.n=function(t){var e=t&&t.__esModule?function(){return t.default}:function(){return t};return n.d(e,"a",e),e},n.o=function(t,e){return Object.prototype.hasOwnProperty.call(t,e)},n.p="",n(n.s=0)}([function(t,e,n){t.exports=n(1);},function(t,e,n){n.r(e);var r,o,i={UNDO:"@@redux-undo/UNDO",REDO:"@@redux-undo/REDO",JUMP_TO_FUTURE:"@@redux-undo/JUMP_TO_FUTURE",JUMP_TO_PAST:"@@redux-undo/JUMP_TO_PAST",JUMP:"@@redux-undo/JUMP",CLEAR_HISTORY:"@@redux-undo/CLEAR_HISTORY"},u={undo:function(){return {type:i.UNDO}},redo:function(){return {type:i.REDO}},jumpToFuture:function(t){return {type:i.JUMP_TO_FUTURE,index:t}},jumpToPast:function(t){return {type:i.JUMP_TO_PAST,index:t}},jump:function(t){return {type:i.JUMP,index:t}},clearHistory:function(){return {type:i.CLEAR_HISTORY}}};function c(t){var e=arguments.length>1&&void 0!==arguments[1]?arguments[1]:[];return Array.isArray(t)?t:"string"==typeof t?[t]:e}function a(t){return void 0!==t.present&&void 0!==t.future&&void 0!==t.past&&Array.isArray(t.future)&&Array.isArray(t.past)}function p(t){var e=c(t);return function(t){return e.indexOf(t.type)>=0}}function l(t){var e=c(t);return function(t){return e.indexOf(t.type)<0}}function f(){for(var t=arguments.length,e=new Array(t),n=0;n<t;n++)e[n]=arguments[n];return e.reduce((function(t,e){return function(n,r,o){return t(n,r,o)&&e(n,r,o)}}),(function(){return !0}))}function s(t){var e=c(t);return function(t){return e.indexOf(t.type)>=0?t.type:null}}function d(t,e,n){return {past:t,present:e,future:n,group:arguments.length>3&&void 0!==arguments[3]?arguments[3]:null,_latestUnfiltered:e,index:t.length,limit:t.length+n.length+1}}function y(t){return function(t){if(Array.isArray(t)){for(var e=0,n=new Array(t.length);e<t.length;e++)n[e]=t[e];return n}}(t)||function(t){if(Symbol.iterator in Object(t)||"[object Arguments]"===Object.prototype.toString.call(t))return Array.from(t)}(t)||function(){throw new TypeError("Invalid attempt to spread non-iterable instance")}()}var g={prevState:"#9E9E9E",action:"#03A9F4",nextState:"#4CAF50"};function v(t,e,n){return ["%c".concat(t),"color: ".concat(e,"; font-weight: bold"),n]}function O(t,e){o={header:[],prev:[],action:[],next:[],msgs:[]},r&&(console.group?(o.header=["%credux-undo","font-style: italic","action",t.type],o.action=v("action",g.action,t),o.prev=v("prev history",g.prevState,e)):(o.header=["redux-undo action",t.type],o.action=["action",t],o.prev=["prev history",e]));}function T(t){var e,n,i,u,c,a,p,l,f,s,d,O,T,b,m,h;r&&(console.group?o.next=v("next history",g.nextState,t):o.next=["next history",t],O=(d=o).header,T=d.prev,b=d.next,m=d.action,h=d.msgs,console.group?((e=console).groupCollapsed.apply(e,y(O)),(n=console).log.apply(n,y(T)),(i=console).log.apply(i,y(m)),(u=console).log.apply(u,y(b)),(c=console).log.apply(c,y(h)),console.groupEnd()):((a=console).log.apply(a,y(O)),(p=console).log.apply(p,y(T)),(l=console).log.apply(l,y(m)),(f=console).log.apply(f,y(b)),(s=console).log.apply(s,y(h))));}function b(){if(r){for(var t=arguments.length,e=new Array(t),n=0;n<t;n++)e[n]=arguments[n];o.msgs=o.msgs.concat([].concat(e,["\n"]));}}function m(t,e){var n=Object.keys(t);if(Object.getOwnPropertySymbols){var r=Object.getOwnPropertySymbols(t);e&&(r=r.filter((function(e){return Object.getOwnPropertyDescriptor(t,e).enumerable}))),n.push.apply(n,r);}return n}function h(t){for(var e=1;e<arguments.length;e++){var n=null!=arguments[e]?arguments[e]:{};e%2?m(Object(n),!0).forEach((function(e){x(t,e,n[e]);})):Object.getOwnPropertyDescriptors?Object.defineProperties(t,Object.getOwnPropertyDescriptors(n)):m(Object(n)).forEach((function(e){Object.defineProperty(t,e,Object.getOwnPropertyDescriptor(n,e));}));}return t}function x(t,e,n){return e in t?Object.defineProperty(t,e,{value:n,enumerable:!0,configurable:!0,writable:!0}):t[e]=n,t}function j(t){return function(t){if(Array.isArray(t)){for(var e=0,n=new Array(t.length);e<t.length;e++)n[e]=t[e];return n}}(t)||function(t){if(Symbol.iterator in Object(t)||"[object Arguments]"===Object.prototype.toString.call(t))return Array.from(t)}(t)||function(){throw new TypeError("Invalid attempt to spread non-iterable instance")}()}function A(t,e){var n=d([],t,[]);return e&&(n._latestUnfiltered=null),n}function _(t,e,n,r){var o=t.past.length+1;b("inserting",e),b("new free: ",n-o);var i=t.past,u=t._latestUnfiltered,c=n&&n<=o,a=i.slice(c?1:0);return d(null!=u?[].concat(j(a),[u]):a,e,[],r)}function P(t,e){if(e<0||e>=t.future.length)return t;var n=t.past,r=t.future,o=t._latestUnfiltered;return d([].concat(j(n),[o],j(r.slice(0,e))),r[e],r.slice(e+1))}function S(t,e){if(e<0||e>=t.past.length)return t;var n=t.past,r=t.future,o=t._latestUnfiltered,i=n.slice(0,e),u=[].concat(j(n.slice(e+1)),[o],j(r));return d(i,n[e],u)}function U(t,e){return e>0?P(t,e-1):e<0?S(t,t.past.length+e):t}function w(t,e){return e.indexOf(t)>-1?t:!t}function E(t){var e,n=arguments.length>1&&void 0!==arguments[1]?arguments[1]:{};e=n.debug,r=e;var o,u=h({limit:void 0,filter:function(){return !0},groupBy:function(){return null},undoType:i.UNDO,redoType:i.REDO,jumpToPastType:i.JUMP_TO_PAST,jumpToFutureType:i.JUMP_TO_FUTURE,jumpType:i.JUMP,neverSkipReducer:!1,ignoreInitialState:!1,syncFilter:!1},n,{initTypes:c(n.initTypes,["@@redux-undo/INIT"]),clearHistoryType:c(n.clearHistoryType,[i.CLEAR_HISTORY])}),p=u.neverSkipReducer?function(e,n){for(var r=arguments.length,o=new Array(r>2?r-2:0),i=2;i<r;i++)o[i-2]=arguments[i];return h({},e,{present:t.apply(void 0,[e.present,n].concat(o))})}:function(t){return t};return function(){var e=arguments.length>0&&void 0!==arguments[0]?arguments[0]:o,n=arguments.length>1&&void 0!==arguments[1]?arguments[1]:{};O(n,e);for(var r,i=e,c=arguments.length,l=new Array(c>2?c-2:0),f=2;f<c;f++)l[f-2]=arguments[f];if(!o){if(b("history is uninitialized"),void 0===e){var s={type:"@@redux-undo/CREATE_HISTORY"},y=t.apply(void 0,[e,s].concat(l));return i=A(y,u.ignoreInitialState),b("do not set initialState on probe actions"),T(i),i}a(e)?(i=o=u.ignoreInitialState?e:d(e.past,e.present,e.future),b("initialHistory initialized: initialState is a history",o)):(i=o=A(e,u.ignoreInitialState),b("initialHistory initialized: initialState is not a history",o));}switch(n.type){case void 0:return i;case u.undoType:return r=U(i,-1),b("perform undo"),T(r),p.apply(void 0,[r,n].concat(l));case u.redoType:return r=U(i,1),b("perform redo"),T(r),p.apply(void 0,[r,n].concat(l));case u.jumpToPastType:return r=S(i,n.index),b("perform jumpToPast to ".concat(n.index)),T(r),p.apply(void 0,[r,n].concat(l));case u.jumpToFutureType:return r=P(i,n.index),b("perform jumpToFuture to ".concat(n.index)),T(r),p.apply(void 0,[r,n].concat(l));case u.jumpType:return r=U(i,n.index),b("perform jump to ".concat(n.index)),T(r),p.apply(void 0,[r,n].concat(l));case w(n.type,u.clearHistoryType):return r=A(i.present,u.ignoreInitialState),b("perform clearHistory"),T(r),p.apply(void 0,[r,n].concat(l));default:if(r=t.apply(void 0,[i.present,n].concat(l)),u.initTypes.some((function(t){return t===n.type})))return b("reset history due to init action"),T(o),o;if(i._latestUnfiltered===r)return i;var g="function"==typeof u.filter&&!u.filter(n,r,i);if(g){var v=d(i.past,r,i.future,i.group);return u.syncFilter||(v._latestUnfiltered=i._latestUnfiltered),b("filter ignored action, not storing it in past"),T(v),v}var m=u.groupBy(n,r,i);if(null!=m&&m===i.group){var h=d(i.past,r,i.future,i.group);return b("groupBy grouped the action with the previous action"),T(h),h}return i=_(i,r,u.limit,m),b("inserted new state into history"),T(i),i}}}n.d(e,"ActionTypes",(function(){return i})),n.d(e,"ActionCreators",(function(){return u})),n.d(e,"parseActions",(function(){return c})),n.d(e,"isHistory",(function(){return a})),n.d(e,"includeAction",(function(){return p})),n.d(e,"excludeAction",(function(){return l})),n.d(e,"combineFilters",(function(){return f})),n.d(e,"groupByActionTypes",(function(){return s})),n.d(e,"newHistory",(function(){return d})),n.d(e,"default",(function(){return E}));}])}));
+    } (reduxUndo));
+
+    var undoable = /*@__PURE__*/getDefaultExportFromCjs(reduxUndo.exports);
+
+    const graph = (state = emptyGraph(), action) => {
+        switch (action.type) {
+            case 'NEW_GOOGLE_DRIVE_DIAGRAM':
+            case 'NEW_LOCAL_STORAGE_DIAGRAM':
+                return emptyGraph()
+
+            case 'CREATE_NODE':
+                {
+                    const newNodes = state.nodes.slice();
+                    newNodes.push({
+                        id: action.newNodeId,
+                        position: action.newNodePosition,
+                        caption: action.caption,
+                        style: action.style,
+                        labels: [],
+                        properties: {}
+                    });
+                    return {
+                        style: state.style,
+                        nodes: newNodes,
+                        relationships: state.relationships
+                    }
+                }
+
+            case 'CREATE_NODES_AND_RELATIONSHIPS':
+                {
+                    const newNodes = [...state.nodes, ...action.targetNodeIds.map((targetNodeId, i) => {
+                        return {
+                            id: targetNodeId,
+                            position: action.targetNodePositions[i],
+                            caption: action.caption,
+                            style: action.style,
+                            labels: [],
+                            properties: {}
+                        }
+                    })];
+                    const newRelationships = [...state.relationships, ...action.newRelationshipIds.map((newRelationshipId, i) => {
+                        return {
+                            id: newRelationshipId,
+                            type: '',
+                            style: {},
+                            properties: {},
+                            fromId: action.sourceNodeIds[i],
+                            toId: action.targetNodeIds[i]
+                        }
+                    })];
+
+                    return {
+                        style: state.style,
+                        nodes: newNodes,
+                        relationships: newRelationships
+                    }
+                }
+
+            case 'CONNECT_NODES':
+                {
+                    const newRelationships = [...state.relationships, ...action.newRelationshipIds.map((newRelationshipId, i) => {
+                        return {
+                            id: newRelationshipId,
+                            type: '',
+                            style: {},
+                            properties: {},
+                            fromId: action.sourceNodeIds[i],
+                            toId: action.targetNodeIds[i]
+                        }
+                    })];
+                    return {
+                        style: state.style,
+                        nodes: state.nodes,
+                        relationships: newRelationships
+                    }
+                }
+
+            case 'SET_NODE_CAPTION':
+                {
+                    return {
+                        style: state.style,
+                        nodes: state.nodes.map((node) => nodeSelected(action.selection, node.id) ? setCaption(node, action.caption) : node),
+                        relationships: state.relationships
+                    }
+                }
+
+            case 'ADD_LABEL':
+                {
+                    return {
+                        style: state.style,
+                        nodes: state.nodes.map((node) => nodeSelected(action.selection, node.id) ? addLabel(node, action.label) : node),
+                        relationships: state.relationships
+                    }
+                }
+
+            case 'ADD_LABELS':
+                {
+                    return {
+                        style: state.style,
+                        nodes: state.nodes.map((node) => action.nodeLabels.hasOwnProperty(node.id) ? addLabel(node, action.nodeLabels[node.id]) : node),
+                        relationships: state.relationships
+                    }
+                }
+
+            case 'RENAME_LABEL':
+                {
+                    return {
+                        style: state.style,
+                        nodes: state.nodes.map((node) => nodeSelected(action.selection, node.id) ? renameLabel(node, action.oldLabel, action.newLabel) : node),
+                        relationships: state.relationships
+                    }
+                }
+
+            case 'REMOVE_LABEL':
+                {
+                    return {
+                        style: state.style,
+                        nodes: state.nodes.map((node) => nodeSelected(action.selection, node.id) ? removeLabel(node, action.label) : node),
+                        relationships: state.relationships
+                    }
+                }
+
+            case 'MERGE_NODES':
+                {
+                    const nodeIdMap = new Map();
+                    for (const spec of action.mergeSpecs) {
+                        for (const purgedNodeId of spec.purgedNodeIds) {
+                            nodeIdMap.set(purgedNodeId, spec.survivingNodeId);
+                        }
+                    }
+                    const translateNodeId = (nodeId) => nodeIdMap.has(nodeId) ? nodeIdMap.get(nodeId) : nodeId;
+                    return {
+                        style: state.style,
+                        nodes: state.nodes
+                            .filter(node => {
+                                return !action.mergeSpecs.some(spec => spec.purgedNodeIds.includes(node.id))
+                            })
+                            .map(node => {
+                                const spec = action.mergeSpecs.find(spec => spec.survivingNodeId === node.id);
+                                if (spec) {
+                                    let mergedProperties = node.properties;
+                                    for (const purgedNodeId of spec.purgedNodeIds) {
+                                        const purgedNode = state.nodes.find(node => node.id === purgedNodeId);
+                                        mergedProperties = { ...mergedProperties,
+                                            ...purgedNode.properties
+                                        };
+                                    }
+                                    return {
+                                        ...node,
+                                        properties: mergedProperties,
+                                        position: spec.position
+                                    }
+                                } else {
+                                    return node
+                                }
+                            }),
+                        relationships: state.relationships
+                            .map(relationship => {
+                                return {
+                                    ...relationship,
+                                    fromId: translateNodeId(relationship.fromId),
+                                    toId: translateNodeId(relationship.toId),
+                                }
+                            })
+                    }
+                }
+
+            case 'RENAME_PROPERTY':
+                {
+                    return {
+                        style: state.style,
+                        nodes: state.nodes.map((node) => nodeSelected(action.selection, node.id) ? renameProperty(node, action.oldPropertyKey, action.newPropertyKey) : node),
+                        relationships: state.relationships.map((relationship) => relationshipSelected(action.selection, relationship.id) ? renameProperty(relationship, action.oldPropertyKey, action.newPropertyKey) : relationship)
+                    }
+                }
+
+            case 'SET_PROPERTY':
+                {
+                    return {
+                        style: state.style,
+                        nodes: state.nodes.map((node) => nodeSelected(action.selection, node.id) ? setProperty(node, action.key, action.value) : node),
+                        relationships: state.relationships.map((relationship) => relationshipSelected(action.selection, relationship.id) ? setProperty(relationship, action.key, action.value) : relationship)
+                    }
+                }
+
+            case 'SET_PROPERTY_VALUES':
+                {
+                    return {
+                        style: state.style,
+                        nodes: state.nodes.map((node) => action.nodePropertyValues.hasOwnProperty(node.id) ? setProperty(node, action.key, action.nodePropertyValues[node.id]) : node),
+                        relationships: state.relationships
+                    }
+                }
+
+            case 'SET_ARROWS_PROPERTY':
+                {
+                    return {
+                        style: state.style,
+                        nodes: state.nodes.map((node) =>
+                            nodeStyleAttributes.includes(action.key) && nodeSelected(action.selection, node.id) ?
+                            setArrowsProperty(node, action.key, action.value) :
+                            node),
+                        relationships: state.relationships.map((relationship) =>
+                            relationshipStyleAttributes.includes(action.key) && relationshipSelected(action.selection, relationship.id) ?
+                            setArrowsProperty(relationship, action.key, action.value) :
+                            relationship)
+                    }
+                }
+
+            case 'REMOVE_PROPERTY':
+                {
+                    return {
+                        style: state.style,
+                        nodes: state.nodes.map((node) => nodeSelected(action.selection, node.id) ? removeProperty(node, action.key) : node),
+                        relationships: state.relationships.map((relationship) => relationshipSelected(action.selection, relationship.id) ? removeProperty(relationship, action.key) : relationship)
+                    }
+                }
+
+            case 'REMOVE_ARROWS_PROPERTY':
+                {
+                    return {
+                        style: state.style,
+                        nodes: state.nodes.map((node) => nodeSelected(action.selection, node.id) ? removeArrowsProperty(node, action.key) : node),
+                        relationships: state.relationships.map((relationship) => relationshipSelected(action.selection, relationship.id) ? removeArrowsProperty(relationship, action.key) : relationship)
+                    }
+                }
+
+            case 'SET_GRAPH_STYLE':
+                {
+                    const graphStyle = { ...state.style
+                    };
+                    graphStyle[action.key] = action.value;
+                    return {
+                        style: graphStyle,
+                        nodes: state.nodes,
+                        relationships: state.relationships
+                    }
+                }
+
+            case 'SET_GRAPH_STYLES':
+                {
+                    const graphStyle = { ...state.style
+                    };
+                    for (const [key, value] of Object.entries(action.style)) {
+                        graphStyle[key] = value;
+                    }
+                    return {
+                        style: graphStyle,
+                        nodes: state.nodes,
+                        relationships: state.relationships
+                    }
+                }
+
+            case 'MOVE_NODES':
+            case 'MOVE_NODES_END_DRAG':
+                const nodeIdToNode = {};
+                let clean = true;
+                state.nodes.forEach((node) => {
+                    nodeIdToNode[node.id] = node;
+                });
+                action.nodePositions.forEach((nodePosition) => {
+                    if (nodeIdToNode[nodePosition.nodeId]) {
+                        const oldNode = nodeIdToNode[nodePosition.nodeId];
+                        clean &= oldNode.position.isEqual(nodePosition.position);
+                        nodeIdToNode[nodePosition.nodeId] = moveTo(oldNode, nodePosition.position);
+                    }
+                });
+
+                if (clean) return state
+
+                return {
+                    style: state.style,
+                    nodes: Object.values(nodeIdToNode),
+                    relationships: state.relationships
+                }
+
+            case 'SET_RELATIONSHIP_TYPE':
+                return {
+                    style: state.style,
+                    nodes: state.nodes,
+                    relationships: state.relationships.map(relationship => relationshipSelected(action.selection, relationship.id) ? setType(relationship, action.relationshipType) : relationship)
+                }
+
+            case 'DUPLICATE_NODES_AND_RELATIONSHIPS':
+                {
+                    const newNodes = state.nodes.slice();
+                    Object.keys(action.nodeIdMap).forEach(newNodeId => {
+                        const spec = action.nodeIdMap[newNodeId];
+                        const oldNode = state.nodes.find(n => idsMatch(n.id, spec.oldNodeId));
+                        const newNode = {
+                            id: newNodeId,
+                            position: spec.position,
+                            caption: oldNode.caption,
+                            style: { ...oldNode.style
+                            },
+                            labels: [...oldNode.labels],
+                            properties: { ...oldNode.properties
+                            }
+                        };
+                        newNodes.push(newNode);
+                    });
+
+                    const newRelationships = state.relationships.slice();
+                    Object.keys(action.relationshipIdMap).forEach(newRelationshipId => {
+                        const spec = action.relationshipIdMap[newRelationshipId];
+                        const oldRelationship = state.relationships.find(r => idsMatch(r.id, spec.oldRelationshipId));
+                        const newRelationship = {
+                            id: newRelationshipId,
+                            type: oldRelationship.type,
+                            fromId: spec.fromId,
+                            toId: spec.toId,
+                            style: { ...oldRelationship.style
+                            },
+                            properties: { ...oldRelationship.properties
+                            }
+                        };
+                        newRelationships.push(newRelationship);
+                    });
+
+                    return {
+                        style: state.style,
+                        nodes: newNodes,
+                        relationships: newRelationships
+                    }
+                }
+
+            case 'IMPORT_NODES_AND_RELATIONSHIPS':
+                {
+                    const newNodes = [...state.nodes, ...action.nodes];
+                    const newRelationships = [...state.relationships, ...action.relationships];
+
+                    return {
+                        style: state.style,
+                        nodes: newNodes,
+                        relationships: newRelationships
+                    }
+                }
+
+            case 'DELETE_NODES_AND_RELATIONSHIPS':
+                return {
+                    style: state.style,
+                    nodes: state.nodes.filter(node => !action.nodeIdMap[node.id]),
+                    relationships: state.relationships.filter(relationship => !action.relationshipIdMap[relationship.id])
+                }
+
+            case 'REVERSE_RELATIONSHIPS':
+                return {
+                    ...state,
+                    relationships: state.relationships.map(relationship => relationshipSelected(action.selection, relationship.id) ? reverse(relationship) : relationship)
+                }
+
+            case 'INLINE_RELATIONSHIPS':
+                return {
+                    ...state,
+                    nodes: state.nodes
+                        .filter(node => !action.relationshipSpecs.some(spec => spec.removeNodeId === node.id))
+                        .map(node => {
+                            const spec = action.relationshipSpecs.find(spec => spec.addPropertiesNodeId === node.id);
+                            if (spec) {
+                                let augmentedNode = node;
+                                for (const label of spec.labels) {
+                                    augmentedNode = addLabel(augmentedNode, label);
+                                }
+                                for (const [key, value] of Object.entries(spec.properties)) {
+                                    augmentedNode = setProperty(augmentedNode, key, value);
+                                }
+                                return augmentedNode
+                            } else {
+                                return node
+                            }
+                        }),
+                    relationships: state.relationships
+                        .filter(relationship => !action.relationshipSpecs.some(spec =>
+                            spec.removeNodeId === relationship.fromId ||
+                            spec.removeNodeId === relationship.toId
+                        ))
+                }
+
+            case 'GETTING_GRAPH_SUCCEEDED':
+                return action.storedGraph
+
+            default:
+                return state
+        }
+    };
+
+    var graph$1 = undoable(graph, {
+        filter: action => action.category === 'GRAPH',
+        groupBy: reduxUndo.exports.groupByActionTypes('MOVE_NODES')
+    });
+
+    const allEntitiesSelected = (oldEntities, newEntities) => {
+        return newEntities.every(newEntity =>
+            oldEntities.some(oldEntity =>
+                entitiesMatch(oldEntity, newEntity)
+            )
+        )
+    };
+
+    const entitiesMatch = (entity1, entity2) => (
+        entity1.entityType === entity2.entityType &&
+        entity1.id === entity2.id
+    );
+
+    const toggleEntities = (oldEntities, newEntities, mode) => {
+        if (mode === 'at-least' && allEntitiesSelected(oldEntities, newEntities)) {
+            return oldEntities
+        }
+
+        switch (mode) {
+            case 'xor':
+                return oldEntities
+                    .filter(oldEntity => {
+                        return !newEntities.some(newEntity =>
+                            entitiesMatch(oldEntity, newEntity)
+                        )
+                    }).concat(newEntities.filter(newEntity => {
+                        return !oldEntities.some(oldEntity =>
+                            entitiesMatch(oldEntity, newEntity)
+                        )
+                    }))
+            case 'or':
+                return oldEntities
+                    .concat(newEntities.filter(newEntity => {
+                        return !oldEntities.some(oldEntity =>
+                            entitiesMatch(oldEntity, newEntity)
+                        )
+                    }))
+
+            case 'replace':
+            case 'at-least':
+                return newEntities
+        }
+    };
+
+    function selection(state = {
+        editing: undefined,
+        entities: []
+    }, action) {
+        switch (action.type) {
+            case 'ACTIVATE_EDITING':
+                return {
+                    editing: action.editing,
+                    entities: toggleEntities(state.entities, [action.editing], 'at-least')
+                }
+
+            case 'DEACTIVATE_EDITING':
+                return {
+                    editing: undefined,
+                    entities: state.entities
+                }
+
+            case 'TOGGLE_SELECTION':
+                const entities = toggleEntities(state.entities, action.entities, action.mode);
+                let editing = undefined;
+                if (state.editing && entities.some(selectedEntity => entitiesMatch(selectedEntity, state.editing))) {
+                    editing = state.editing;
+                }
+                return {
+                    editing,
+                    entities
+                }
+
+            case 'CLEAR_SELECTION':
+            case 'DELETE_NODES_AND_RELATIONSHIPS':
+            case reduxUndo.exports.ActionTypes.UNDO:
+            case reduxUndo.exports.ActionTypes.REDO:
+                return {
+                    editing: undefined,
+                    entities: []
+                }
+            case 'CREATE_NODE':
+                {
+                    return {
+                        editing: undefined,
+                        entities: [{
+                            entityType: 'node',
+                            id: action.newNodeId
+                        }]
+                    }
+                }
+            case 'CREATE_NODES_AND_RELATIONSHIPS':
+                {
+                    return {
+                        editing: undefined,
+                        entities: action.targetNodeIds.map(targetNodeId => ({
+                            entityType: 'node',
+                            id: targetNodeId
+                        }))
+                    }
+                }
+            case 'CONNECT_NODES':
+                {
+                    return {
+                        editing: undefined,
+                        entities: action.newRelationshipIds.map(newRelationshipId => ({
+                            entityType: 'relationship',
+                            id: newRelationshipId
+                        }))
+                    }
+                }
+            case 'DUPLICATE_NODES_AND_RELATIONSHIPS':
+                return {
+                    editing: undefined,
+                    entities: [
+                        ...Object.keys(action.nodeIdMap).map(nodeId => ({
+                            entityType: 'node',
+                            id: nodeId
+                        })),
+                        ...Object.keys(action.relationshipIdMap).map(relId => ({
+                            entityType: 'relationship',
+                            id: relId
+                        }))
+                    ]
+                }
+            case 'MERGE_NODES':
+                return {
+                    editing: undefined,
+                    entities: action.mergeSpecs.map(spec => ({
+                        entityType: 'node',
+                        id: spec.survivingNodeId
+                    }))
+                }
+            case 'INLINE_RELATIONSHIPS':
+                return {
+                    editing: undefined,
+                    entities: action.relationshipSpecs.map(spec => ({
+                        entityType: 'node',
+                        id: spec.addPropertiesNodeId
+                    }))
+                }
+            case 'IMPORT_NODES_AND_RELATIONSHIPS':
+                return {
+                    editing: undefined,
+                    entities: [
+                        ...action.nodes.map(node => ({
+                            entityType: 'node',
+                            id: node.id
+                        })),
+                        ...action.relationships.map(relationship => ({
+                            entityType: 'relationship',
+                            id: relationship.id
+                        }))
+                    ]
+                }
+            default:
+                return state
+        }
+    }
+
+    const mouse = (state = {
+        dragType: 'NONE'
+    }, action) => {
+        switch (action.type) {
+            case 'MOUSE_DOWN_ON_HANDLE':
+                {
+                    return {
+                        dragType: 'HANDLE',
+                        corner: action.corner,
+                        mousePosition: action.canvasPosition,
+                        initialMousePosition: action.canvasPosition,
+                        initialNodePositions: action.nodePositions
+                    }
+                }
+
+            case 'LOCK_HANDLE_DRAG_MODE':
+                {
+                    return {
+                        ...state,
+                        dragType: action.dragType
+                    }
+                }
+
+            case 'MOUSE_DOWN_ON_NODE':
+                {
+                    const mouseToNodeVector = action.node.position.vectorFrom(action.graphPosition);
+                    return {
+                        dragType: 'NODE',
+                        node: action.node,
+                        mousePosition: action.position,
+                        mouseToNodeVector
+                    }
+                }
+
+            case 'MOUSE_DOWN_ON_NODE_RING':
+                {
+                    return {
+                        dragType: 'NODE_RING',
+                        node: action.node,
+                        mousePosition: action.position
+                    }
+                }
+
+            case 'MOUSE_DOWN_ON_CANVAS':
+                {
+                    return {
+                        dragType: 'CANVAS',
+                        dragged: false,
+                        mousePosition: action.canvasPosition,
+                        mouseDownPosition: action.graphPosition
+                    }
+                }
+
+            case 'MOVE_NODES':
+                const currentPosition = action.newMousePosition || state.mousePosition;
+                return {
+                    ...state,
+                    dragged: true,
+                    mousePosition: currentPosition
+                }
+
+            case 'RING_DRAGGED':
+                return {
+                    ...state,
+                    dragged: true,
+                    mousePosition: action.newMousePosition
+                }
+
+            case 'SET_MARQUEE':
+                return {
+                    ...state,
+                    dragType: 'MARQUEE',
+                    dragged: true,
+                    mousePosition: action.newMousePosition
+                }
+
+            case 'END_DRAG':
+                return {
+                    dragType: 'NONE'
+                }
+
+            default:
+                return state
+        }
+    };
+
+    class Guides {
+        constructor(guidelines = [], naturalPosition, naturalRadius) {
+            this.guidelines = guidelines;
+            this.naturalPosition = naturalPosition;
+            this.naturalRadius = naturalRadius;
+        }
+    }
+
+    function guides(state = new Guides(), action) {
+        switch (action.type) {
+            case 'MOVE_NODES':
+            case 'RING_DRAGGED':
+                return action.guides
+
+            case 'END_DRAG':
+                return new Guides()
+
+            default:
+                return state
+        }
+    }
+
+    class Size {
+        constructor(width, height) {
+            this.width = width;
+            this.height = height;
+        }
+
+        relative(dWidth, dHeight) {
+            return new Size(this.width + dWidth, this.height + dHeight)
+        }
+    }
+
+    const applicationLayout = (state = {
+        windowSize: new Size(window.innerWidth, window.innerHeight),
+        inspectorVisible: true,
+        styleMode: 'theme',
+        betaFeaturesEnabled: false,
+        layers: []
+    }, action) => {
+        switch (action.type) {
+            case 'WINDOW_RESIZED':
+                return {
+                    ...state,
+                    windowSize: new Size(action.width, action.height)
+                }
+
+            case 'TOGGLE_INSPECTOR':
+                return {
+                    ...state,
+                    inspectorVisible: !state.inspectorVisible
+                }
+
+            case 'STYLE_THEME':
+                return {
+                    ...state,
+                    styleMode: 'theme'
+                }
+
+            case 'STYLE_CUSTOMIZE':
+                return {
+                    ...state,
+                    styleMode: 'customize'
+                }
+
+            case 'SET_BETA_FEATURES_ENABLED':
+                return {
+                    ...state,
+                    layers: [],
+                    betaFeaturesEnabled: action.enabled
+                }
+            case 'SET_PERSIST_CLUSTERS':
+                const clusterLayer = state.layers.find(layer => layer.name === 'gangs');
+                if (clusterLayer && clusterLayer.persist !== action.enabled) {
+                    const otherLayers = state.layers.filter(layer => layer.name !== 'gangs');
+                    return {
+                        ...state,
+                        layers: otherLayers.concat([{
+                            ...clusterLayer,
+                            persist: action.enabled
+                        }])
+                    }
+                } else {
+                    return state
+                }
+            default:
+                return state
+        }
+    };
+
+    class ViewTransformation {
+        constructor(scale = 1, offset = new Vector(0, 0)) {
+            this.scale = scale;
+            this.offset = offset;
+        }
+
+        zoom(scale) {
+            return new ViewTransformastion(scale, this.offset)
+        }
+
+        scroll(vector) {
+            return new ViewTransformation(this.scale, this.offset.plus(vector))
+        }
+
+        transform(point) {
+            return point.scale(this.scale).translate(this.offset)
+        }
+
+        inverse(point) {
+            return point.translate(this.offset.invert()).scale(1 / this.scale)
+        }
+
+        adjust(scale, panX, panY) {
+            return new ViewTransformation(scale, new Vector(panX, panY))
+        }
+
+        asCSSTransform() {
+            return `${this.offset.asCSSTransform()} scale(${this.scale})`
+        }
+    }
+
+    const viewTransformation = (state = new ViewTransformation(), action) => {
+        switch (action.type) {
+            case 'SCROLL':
+                return state.scroll(action.vector)
+
+            case 'ADJUST_VIEWPORT':
+                return state.adjust(action.scale, action.panX, action.panY)
+            default:
+                return state
+        }
+    };
+
+    function dragging(state = {
+        sourceNodeId: null,
+        secondarySourceNodeIds: [],
+        targetNodeIds: [],
+        newNodePosition: null
+    }, action) {
+        switch (action.type) {
+            case 'ACTIVATE_RING':
+                return {
+                    sourceNodeId: action.sourceNodeId,
+                    secondarySourceNodeIds: [],
+                    nodeType: action.nodeType,
+                    targetNodeIds: [],
+                    newNodePosition: null
+                }
+            case 'RING_DRAGGED':
+                return {
+                    sourceNodeId: action.sourceNodeId,
+                    secondarySourceNodeIds: action.secondarySourceNodeIds,
+                    targetNodeIds: action.targetNodeIds,
+                    newNodePosition: action.position
+                }
+            case 'DEACTIVATE_RING':
+            case 'END_DRAG':
+                return {
+                    sourceNodeId: null,
+                    secondarySourceNodeIds: [],
+                    targetNodeIds: [],
+                    newNodePosition: null
+                }
+            default:
+                return state
+        }
+    }
+
+    function selectionMarquee(state = null, action) {
+        switch (action.type) {
+            case 'SET_MARQUEE':
+                return action.marquee
+            case 'END_DRAG':
+                return null
+            default:
+                return state
+        }
+    }
+
+    const gestures = redux.exports.combineReducers({
+        dragToCreate: dragging,
+        selectionMarquee
+    });
+
+    function actionMemos(state = {}, action) {
+        switch (action.type) {
+            case 'DUPLICATE_NODES_AND_RELATIONSHIPS':
+                return {
+                    ...state,
+                    lastDuplicateAction: action
+                }
+
+            default:
+                return state
+        }
+    }
+
+    const initialState$1 = [];
+
+    var gangs = (state = initialState$1, action) => {
+        switch (action.type) {
+            case 'CREATE_CLUSTER':
+                return state.concat([{
+                    id: action.nodeId,
+                    position: action.position,
+                    caption: action.caption,
+                    style: action.style,
+                    properties: {},
+                    type: action.nodeType,
+                    members: action.members,
+                    initialPosition: action.initialPosition
+                }])
+            case 'LOAD_CLUSTERS':
+                return action.clusters.map(cluster => ({
+                    id: cluster.id,
+                    position: cluster.position,
+                    caption: cluster.caption,
+                    properties: {},
+                    type: cluster.type || cluster,
+                    members: cluster.members,
+                    initialPosition: cluster.initialPosition,
+                    style: cluster.style || {
+                        'radius': 50,
+                        'node-color': '#FFF',
+                        'border-width': '2',
+                        'caption-color': '#000'
+                    }
+                }))
+            case 'REMOVE_CLUSTER':
+                return state.filter(gang => gang.id !== action.nodeId)
+
+            case 'MOVE_NODES':
+                const nodeIdToNode = {};
+                state.forEach((node) => {
+                    nodeIdToNode[node.id] = node;
+                });
+
+                action.nodePositions.forEach((nodePosition) => {
+                    if (nodeIdToNode[nodePosition.nodeId]) {
+                        nodeIdToNode[nodePosition.nodeId] = moveTo(nodeIdToNode[nodePosition.nodeId], nodePosition.position);
+                    }
+                });
+
+                return [...Object.values(nodeIdToNode)]
+            default:
+                return state
+        }
+    };
+
+    const initialState = {
+        "storage.GOOGLE_DRIVE": true,
+        "storage.LOCAL_STORAGE": true,
+        "storage.DATABASE": false,
+    };
+
+    var features = (state = initialState, action) => initialState;
+
+    var googleDrive = (state = {}, action) => {
+        switch (action.type) {
+            case 'GOOGLE_DRIVE_SIGN_IN_STATUS':
+                return {
+                    apiInitialized: true,
+                    signedIn: action.signedIn
+                }
+            default:
+                return state
+        }
+    };
+
+    function cachedImages(state = {}, action) {
+        if (action.type === 'IMAGE_EVENT') {
+            return {
+                ...state,
+                [action.imageUrl]: action.cachedImage
+            }
+        }
+
+        return state
+    }
+
+    const arrowsAppReducers = redux.exports.combineReducers({
+        // recentStorage,
+        // storage,
+        diagramName,
+        graph: graph$1,
+        selection,
+        mouse,
+        gestures,
+        guides,
+        applicationLayout,
+        viewTransformation,
+        actionMemos,
+        // applicationDialogs,
+        gangs,
+        features,
+        googleDrive,
+        cachedImages
+    });
+
+    class StateController {
+        constructor() {
+            this.store = redux.exports.createStore(
+                arrowsAppReducers,
+            );
+
+            this.instance = null;
+        }
+
+        getStore() {
+            return this.store
+        }
+
+        // 单例模式
+        static getInstance() {
+            if (this.instance) {
+                return this.instance
+            }
+
+            return this.instance = new StateController()
+        }
+    }
+
     function merge(target, source) {
         Object.keys(source).forEach((property) => {
             target[property] = source[property];
@@ -4278,20 +6176,22 @@
                 editing: undefined,
                 entities: []
             };
-
             this.options = {
                 width: '100%',
                 height: '100%'
             };
 
+            // 合并配置
             merge(this.options, options);
 
-            this.initPointClass(graph);
+            this.stateStore = StateController.getInstance().store;
 
+
+            this.initPointClass(graph);
+            // 适配二倍屏
             this.fitCanvasSize(this.canvas, this.options);
             const visualGraph = getVisualGraph(graph, this.selection, '');
             this.options.viewTransformation = calculateViewportTranslation(visualGraph, {width: this.options.width, height: this.options.height});
-            // console.log(res)
 
             this.renderVisuals({
                 visualGraph,
@@ -4346,7 +6246,6 @@
             visualGraph,
             displayOptions
         }) {
-            console.log(visualGraph, displayOptions);
             const ctx = this.canvas.getContext('2d');
             ctx.clearRect(0, 0, displayOptions.width, displayOptions.height);
         

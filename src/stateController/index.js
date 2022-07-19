@@ -1,6 +1,6 @@
 import { 
     createStore
-} from 'redux'
+} from '../library/redux.js'
 import reducer from '../reducers/index'
 
 export default class StateController {
