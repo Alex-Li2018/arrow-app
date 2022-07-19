@@ -4840,6 +4840,12 @@
         }
     };
 
+    const initGraph = (graph) => ({
+        category: 'GRAPH',
+        type: 'INIT_GRAPH',
+        graph
+    });
+
     const tryMoveNode = ({
         nodeId,
         oldMousePosition,
@@ -5891,6 +5897,23 @@
 
     const graph = (state = emptyGraph(), action) => {
         switch (action.type) {
+            case 'INIT_GRAPH':
+                {
+                    console.log(action);
+                    const newNodes = action.graph.nodes.map(item => ({
+                        ...item,
+                        position: new Point(item.position.x, item.position.y)
+                    }));
+
+                    const newRelationships = action.graph.relationships.slice()
+
+                    return {
+                        style: state.style,
+                        nodes: newNodes,
+                        relationships: newRelationships
+                    }
+                } 
+
             case 'NEW_GOOGLE_DRIVE_DIAGRAM':
             case 'NEW_LOCAL_STORAGE_DIAGRAM':
                 return emptyGraph()
@@ -6927,9 +6950,9 @@
             merge(this.options, options);
             // redux 的store
             this.stateStore = StateController.getInstance().store;
-
-
-            this.initPointClass(graph);
+            // 触发事件获取全局数据
+            this.stateStore.dispatch(initGraph(graph));
+            
             // 适配二倍屏
             this.fitCanvasSize(this.canvas, this.options);
             const visualGraph = getVisualGraph(graph, this.selection, '');
@@ -6939,14 +6962,6 @@
                 visualGraph,
                 displayOptions: this.options
             });
-        }
-
-        // 给节点的每一个点装上Point类
-        initPointClass(graph) {
-            graph.nodes = graph.nodes.map(item => ({
-                ...item,
-                position: new Point(item.position.x, item.position.y)
-            }));
         }
 
         fitCanvasSize(canvas, {

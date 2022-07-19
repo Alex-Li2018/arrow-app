@@ -24,7 +24,7 @@ import {
 } from "../model/Id";
 import {
     nodeStyleAttributes,
-    relationshipStyleAttributes
+    relationshipStyleAttributes,
 } from "../model/styling";
 import undoable, {
     groupByActionTypes
@@ -33,9 +33,27 @@ import {
     nodeSelected,
     relationshipSelected
 } from "../model/selection";
+import { Point } from '../model/Point'
 
 const graph = (state = emptyGraph(), action) => {
     switch (action.type) {
+        case 'INIT_GRAPH':
+            {
+                console.log(action)
+                const newNodes = action.graph.nodes.map(item => ({
+                    ...item,
+                    position: new Point(item.position.x, item.position.y)
+                }))
+
+                const newRelationships = action.graph.relationships.slice()
+
+                return {
+                    style: state.style,
+                    nodes: newNodes,
+                    relationships: newRelationships
+                }
+            } 
+
         case 'NEW_GOOGLE_DRIVE_DIAGRAM':
         case 'NEW_LOCAL_STORAGE_DIAGRAM':
             return emptyGraph()

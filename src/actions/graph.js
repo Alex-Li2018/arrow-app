@@ -55,6 +55,12 @@ import {
     Guides
 } from "../model/guides/guides";
 
+export const initGraph = (graph) => ({
+    category: 'GRAPH',
+    type: 'INIT_GRAPH',
+    graph
+})
+
 export const createNode = () => (dispatch, getState) => {
     let newNodePosition = new Point(0, 0)
     const graph = getPresentGraph(getState())

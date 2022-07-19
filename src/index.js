@@ -1,8 +1,8 @@
 import { getVisualGraph } from './selectors/index'
-import { Point } from './model/Point'
 import CanvasAdaptor from "./graphics/utils/CanvasAdaptor";
 import { calculateViewportTranslation } from './middlewares/viewportMiddleware'
 import StateController from './stateController/index';
+import { initGraph } from './actions/graph'
 
 function merge(target, source) {
     Object.keys(source).forEach((property) => {
@@ -43,9 +43,9 @@ export default class ArrowApp {
         merge(this.options, options)
         // redux 的store
         this.stateStore = StateController.getInstance().store
-
-
-        this.initPointClass(graph)
+        // 触发事件获取全局数据
+        this.stateStore.dispatch(initGraph(graph))
+        
         // 适配二倍屏
         this.fitCanvasSize(this.canvas, this.options)
         const visualGraph = getVisualGraph(graph, this.selection, '')
@@ -55,14 +55,6 @@ export default class ArrowApp {
             visualGraph,
             displayOptions: this.options
         })
-    }
-
-    // 给节点的每一个点装上Point类
-    initPointClass(graph) {
-        graph.nodes = graph.nodes.map(item => ({
-            ...item,
-            position: new Point(item.position.x, item.position.y)
-        }));
     }
 
     fitCanvasSize(canvas, {
