@@ -1,10 +1,13 @@
 // rollup.config.js
 import scss from 'rollup-plugin-scss'
 import { terser } from "rollup-plugin-terser";
-
+import { nodeResolve } from '@rollup/plugin-node-resolve';
+import commonjs from '@rollup/plugin-commonjs';
 
 const plugins = [
-    scss()
+    scss(),
+    nodeResolve(),
+    commonjs()
 ]
 let file = './dist/arrowApp.js'
 
