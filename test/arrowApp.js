@@ -397,7 +397,7 @@
         .flatMap(group => group.attributes)
         .map(attribute => attribute.key);
 
-    styleAttributeGroups
+    const imageAttributes = styleAttributeGroups
         .flatMap(group => group.attributes)
         .filter(attribute => attribute.type === 'image')
         .map(attribute => attribute.key);
@@ -1106,6 +1106,10 @@
         }
     }
 
+    const containsCachedImage = (cachedImages, imageUrl) => {
+        return cachedImages.hasOwnProperty(imageUrl)
+    };
+
     const isImageInfoLoaded = (imageInfo) => {
         return imageInfo && imageInfo.status === 'LOADED'
     };
@@ -1115,6 +1119,63 @@
             status: 'UNKNOWN',
             errorMessage: 'Image not cached',
             image: document.createElement('img'),
+            width: 0,
+            height: 0
+        }
+    };
+
+    const loadImage = (imageUrl, onLoad, onError) => {
+        let dataUrl = undefined;
+
+        const image = document.createElement('img');
+        image.setAttribute('crossorigin', 'anonymous');
+        image.onload = () => {
+            onLoad({
+                status: 'LOADED',
+                image,
+                dataUrl,
+                width: image.naturalWidth,
+                height: image.naturalHeight
+            });
+        };
+        image.onerror = () => {
+            onError({
+                status: 'ERROR',
+                errorMessage: 'Image failed to load',
+                image: document.createElement('img'),
+                width: 0,
+                height: 0
+            });
+        };
+
+        fetch(imageUrl)
+            .then(response => {
+                if (!response.ok) {
+                    throw Error(response.statusText);
+                }
+                return response.blob()
+            })
+            .then(blob => {
+                const reader = new FileReader();
+                reader.readAsDataURL(blob);
+                reader.onloadend = function() {
+                    dataUrl = reader.result;
+                    image.src = dataUrl;
+                };
+            })
+            .catch(reason => {
+                onError({
+                    status: 'ERROR',
+                    errorMessage: reason,
+                    image: image,
+                    width: 0,
+                    height: 0
+                });
+            });
+
+        return {
+            status: 'LOADING',
+            image,
             width: 0,
             height: 0
         }
@@ -2342,6 +2403,10 @@
             return combineBoundingBoxes([...nodeBoxes, ...relationshipBoxes])
         }
     }
+
+    const selectedNodeIds = (selection) => {
+        return selection.entities.filter(entity => entity.entityType === 'node').map(entity => entity.id)
+    };
 
     const nodeSelected = (selection, nodeId) => {
         return selection.entities.some(entity =>
@@ -4183,6 +4248,8 @@
         return 0
     };
 
+    const getPresentGraph = state => state.graph.present || state.graph;
+
     const measureTextContext = (() => {
         const canvas = window.document.createElement('canvas');
         return new CanvasAdaptor(canvas.getContext('2d'))
@@ -4232,9 +4299,639 @@
         return new VisualGraph(graph, visualNodes, relationshipBundles, measureTextContext)
     };
 
+    const adjustViewport = (scale, panX, panY) => {
+        return {
+            type: 'ADJUST_VIEWPORT',
+            scale,
+            panX,
+            panY
+        }
+    };
+
+    class ViewTransformation {
+        constructor(scale = 1, offset = new Vector(0, 0)) {
+            this.scale = scale;
+            this.offset = offset;
+        }
+
+        zoom(scale) {
+            return new ViewTransformastion(scale, this.offset)
+        }
+
+        scroll(vector) {
+            return new ViewTransformation(this.scale, this.offset.plus(vector))
+        }
+
+        transform(point) {
+            return point.scale(this.scale).translate(this.offset)
+        }
+
+        inverse(point) {
+            return point.translate(this.offset.invert()).scale(1 / this.scale)
+        }
+
+        adjust(scale, panX, panY) {
+            return new ViewTransformation(scale, new Vector(panX, panY))
+        }
+
+        asCSSTransform() {
+            return `${this.offset.asCSSTransform()} scale(${this.scale})`
+        }
+    }
+
+    const isVertical = (line) => {
+        return Math.abs(Math.PI / 2 - Math.abs(line.angle)) < 0.01
+    };
+
+    const intersectVertical = (vertical, other) => {
+        return {
+            possible: true,
+            intersection: new Point(
+                vertical.center.x,
+                Math.tan(other.angle) * (vertical.center.x - other.center.x) + other.center.y
+            )
+        }
+    };
+
+    const areParallel = (lineA, lineB) => {
+        return Math.abs((lineA.angle - lineB.angle) % Math.PI) < 0.01
+    };
+
+    const intersectLineAndLine = (lineA, lineB) => {
+        if (areParallel(lineA, lineB)) {
+            return {
+                possible: false
+            }
+        }
+        if (isVertical(lineA)) {
+            return intersectVertical(lineA, lineB)
+        }
+        if (isVertical(lineB)) {
+            return intersectVertical(lineB, lineA)
+        }
+        const mA = Math.tan(lineA.angle);
+        const mB = Math.tan(lineB.angle);
+        const x = ((mA * lineA.center.x - mB * lineB.center.x) - (lineA.center.y - lineB.center.y)) / (mA - mB);
+        return {
+            possible: true,
+            intersection: new Point(x, mA * (x - lineA.center.x) + lineA.center.y)
+        }
+    };
+
+    const sq = (d) => d * d;
+
+    const intersectVerticalLineAndCircle = (line, circle, naturalPosition) => {
+        const dx = Math.abs(circle.center.x - line.center.x);
+        if (dx > circle.radius) {
+            return {
+                possible: false
+            }
+        } else {
+            const dy = Math.sqrt(circle.radius * circle.radius - dx * dx);
+            const y = circle.center.y < naturalPosition.y ? circle.center.y + dy : circle.center.y - dy;
+            const intersection = new Point(line.center.x, y);
+            return {
+                possible: true,
+                intersection
+            }
+        }
+    };
+
+    const intersectLineAndCircle = (line, circle, naturalPosition) => {
+        if (isVertical(line)) {
+            return intersectVerticalLineAndCircle(line, circle, naturalPosition)
+        }
+
+        const m = Math.tan(line.angle);
+        const n = line.center.y - m * line.center.x;
+
+        const a = 1 + sq(m);
+        const b = -circle.center.x * 2 + (m * (n - circle.center.y)) * 2;
+        const c = sq(circle.center.x) + sq(n - circle.center.y) - sq(circle.radius);
+
+        const d = sq(b) - 4 * a * c;
+        if (d >= 0) {
+            const intersections = [
+                (-b + Math.sqrt(d)) / (2 * a),
+                (-b - Math.sqrt(d)) / (2 * a)
+            ].map(x => new Point(x, m * x + n));
+            const errors = intersections.map((point) => point.vectorFrom(naturalPosition).distance());
+            const intersection = errors[0] < errors[1] ? intersections[0] : intersections[1];
+            return {
+                possible: true,
+                intersection
+            }
+        } else {
+            return {
+                possible: false
+            }
+        }
+    };
+
+    const intersectCircleAndCircle = (circleA, circleB, naturalPosition) => {
+        const betweenCenters = circleA.center.vectorFrom(circleB.center);
+        const d = betweenCenters.distance();
+        if (d > Math.abs(circleA.radius - circleB.radius) && d < circleA.radius + circleB.radius) {
+            const a = (circleB.radius * circleB.radius - circleA.radius * circleA.radius + d * d) / (2 * d);
+            const midPoint = circleB.center.translate(betweenCenters.scale(a / d));
+            const h = Math.sqrt(circleB.radius * circleB.radius - a * a);
+            const bisector = betweenCenters.perpendicular().scale(h / d);
+            const intersections = [midPoint.translate(bisector), midPoint.translate(bisector.invert())];
+            const errors = intersections.map((point) => point.vectorFrom(naturalPosition).distance());
+            const intersection = errors[0] < errors[1] ? intersections[0] : intersections[1];
+            return {
+                possible: true,
+                intersection
+            }
+        } else {
+            return {
+                possible: false
+            }
+        }
+    };
+
+    const coLinearIntervals = (natural, coLinear) => {
+        if (coLinear.length < 2) return []
+
+        const intervals = [];
+        const nearest = coLinear.sort((a, b) => Math.abs(natural - a) - Math.abs(natural - b))[0];
+        const sorted = coLinear.sort((a, b) => a - b);
+        const nearestIndex = sorted.indexOf(nearest);
+        const polarity = Math.sign(nearest - natural);
+        if ((nearestIndex > 0 && polarity < 0) || (nearestIndex < sorted.length - 1 && polarity > 0)) {
+            const secondNearest = sorted[nearestIndex + polarity];
+            const interval = nearest - secondNearest;
+            const candidate = nearest + interval;
+            intervals.push({
+                candidate,
+                error: Math.abs(candidate - natural)
+            });
+        }
+        if ((nearestIndex > 0 && polarity > 0) || (nearestIndex < sorted.length - 1 && polarity < 0)) {
+            const opposite = sorted[nearestIndex - polarity];
+            const interval = nearest - opposite;
+            const candidate = nearest - (interval / 2);
+            intervals.push({
+                candidate,
+                error: Math.abs(candidate - natural)
+            });
+        }
+        return intervals
+    };
+
+    const angularDifference = (a, b) => {
+        const rawDifference = Math.abs(a - b);
+        return Math.min(rawDifference, Math.PI * 2 - rawDifference)
+    };
+
+    const angularIntervals = (natural, equidistant) => {
+        if (equidistant.length < 2) return []
+
+        const intervals = [];
+        const nearest = equidistant.sort((a, b) => angularDifference(natural, a) - angularDifference(natural, b))[0];
+        const sorted = equidistant.sort((a, b) => a - b);
+        const nearestIndex = sorted.indexOf(nearest);
+        const polarity = Math.sign(nearest - natural);
+        const wrapIndex = (index) => {
+            if (index < 0) return index + sorted.length
+            if (index > sorted.length - 1) return index - sorted.length
+            return index
+        };
+        const secondNearest = sorted[wrapIndex(nearestIndex + polarity)];
+        const extensionInterval = nearest - secondNearest;
+        const extensionCandidate = nearest + extensionInterval;
+        intervals.push({
+            candidate: extensionCandidate,
+            error: Math.abs(extensionCandidate - natural)
+        });
+        const opposite = sorted[wrapIndex(nearestIndex - polarity)];
+        const bisectionInterval = nearest - opposite;
+        const bisectionCandidate = nearest - (bisectionInterval / 2);
+        intervals.push({
+            candidate: bisectionCandidate,
+            error: Math.abs(bisectionCandidate - natural)
+        });
+        return intervals
+    };
+
+    const byAscendingError = (a, b) => a.error - b.error;
+
+    class Guides {
+        constructor(guidelines = [], naturalPosition, naturalRadius) {
+            this.guidelines = guidelines;
+            this.naturalPosition = naturalPosition;
+            this.naturalRadius = naturalRadius;
+        }
+    }
+
+    class LineGuide {
+        constructor(center, angle, naturalPosition) {
+            this.center = center;
+            this.angle = angle;
+            this.error = this.calculateError(naturalPosition);
+        }
+
+        get type() {
+            return 'LINE'
+        }
+
+        calculateError(naturalPosition) {
+            let yAxisPoint = naturalPosition.translate(this.center.vectorFromOrigin().invert()).rotate(-this.angle);
+            return Math.abs(yAxisPoint.y)
+        }
+
+        snap(naturalPosition) {
+            return this.point(this.scalar(naturalPosition))
+        }
+
+        scalar(position) {
+            let xAxisPoint = position.translate(this.center.vectorFromOrigin().invert()).rotate(-this.angle);
+            return xAxisPoint.x
+        }
+
+        point(scalar) {
+            return new Point(scalar, 0).rotate(this.angle).translate(this.center.vectorFromOrigin())
+        }
+
+        combine(otherGuide, naturalPosition) {
+            switch (otherGuide.type) {
+                case 'LINE':
+                    return intersectLineAndLine(this, otherGuide)
+
+                case 'CIRCLE':
+                    return intersectLineAndCircle(this, otherGuide, naturalPosition)
+
+                default:
+                    throw Error('unknown Guide type: ' + otherGuide.type)
+            }
+        }
+
+        intervalGuide(nodes, naturalPosition) {
+            const otherNodesOnGuide = nodes
+                .filter((node) => this.calculateError(node.position) < 0.01)
+                .map(node => this.scalar(node.position));
+            const intervals = coLinearIntervals(this.scalar(naturalPosition), otherNodesOnGuide);
+            intervals.sort(byAscendingError);
+            if (intervals.length > 0) {
+                const interval = intervals[0];
+                return new LineGuide(this.point(interval.candidate), this.angle + Math.PI / 2, naturalPosition)
+            }
+            return null
+        }
+    }
+
+    class CircleGuide {
+        constructor(center, radius, naturalPosition) {
+            this.center = center;
+            this.radius = radius;
+            this.error = this.calculateError(naturalPosition);
+        }
+
+        get type() {
+            return 'CIRCLE'
+        }
+
+        calculateError(naturalPosition) {
+            const offset = naturalPosition.vectorFrom(this.center);
+            return Math.abs(offset.distance() - this.radius)
+        }
+
+        snap(naturalPosition) {
+            let offset = naturalPosition.vectorFrom(this.center);
+            return this.center.translate(offset.scale(this.radius / offset.distance()))
+        }
+
+        scalar(position) {
+            let offset = position.vectorFrom(this.center);
+            return offset.angle()
+        }
+
+        combine(otherGuide, naturalPosition) {
+            switch (otherGuide.type) {
+                case 'LINE':
+                    return intersectLineAndCircle(otherGuide, this, naturalPosition)
+
+                case 'CIRCLE':
+                    return intersectCircleAndCircle(this, otherGuide, naturalPosition)
+
+                default:
+                    throw Error('unknown Guide type: ' + otherGuide.type)
+            }
+        }
+
+        intervalGuide(nodes, naturalPosition) {
+            const otherNodesOnGuide = nodes
+                .filter((node) => this.calculateError(node.position) < 0.01)
+                .map(node => this.scalar(node.position));
+            const intervals = angularIntervals(this.scalar(naturalPosition), otherNodesOnGuide);
+            intervals.sort(byAscendingError);
+            if (intervals.length > 0) {
+                const interval = intervals[0];
+                return new LineGuide(this.center, interval.candidate, naturalPosition)
+            }
+            return null
+        }
+    }
+
+    const snapTolerance = 20;
+    const grossTolerance = snapTolerance * 2;
+    const angleTolerance = Math.PI / 4;
+
+    const snapToNeighbourDistancesAndAngles = (graph, snappingNodeId, naturalPosition, otherSelectedNodes) => {
+
+        const neighbours = [];
+        graph.relationships.forEach((relationship) => {
+            if (idsMatch(relationship.fromId, snappingNodeId) && !otherSelectedNodes.includes(relationship.toId)) {
+                neighbours.push(graph.nodes.find((node) => idsMatch(node.id, relationship.toId)));
+            } else if (idsMatch(relationship.toId, snappingNodeId) && !otherSelectedNodes.includes(relationship.fromId)) {
+                neighbours.push(graph.nodes.find((node) => idsMatch(node.id, relationship.fromId)));
+            }
+        });
+
+        const includeNode = (nodeId) => !idsMatch(nodeId, snappingNodeId) && !otherSelectedNodes.includes(nodeId);
+
+        return snapToDistancesAndAngles(graph, neighbours, includeNode, naturalPosition)
+    };
+
+    const snapToDistancesAndAngles = (graph, neighbours, includeNode, naturalPosition) => {
+
+        const isNeighbour = (nodeId) => !!neighbours.find(neighbour => neighbour.id === nodeId);
+        let snappedPosition = naturalPosition;
+
+        let possibleGuides = [];
+
+        const neighbourRelationships = {};
+        const collectRelationship = (neighbourNodeId, nonNeighbourNodeId) => {
+            const pair = {
+                neighbour: graph.nodes.find((node) => idsMatch(node.id, neighbourNodeId)),
+                nonNeighbour: graph.nodes.find((node) => idsMatch(node.id, nonNeighbourNodeId))
+            };
+            const pairs = neighbourRelationships[pair.neighbour.id] || [];
+            pairs.push(pair);
+            neighbourRelationships[pair.neighbour.id] = pairs;
+        };
+
+        graph.relationships.forEach((relationship) => {
+            if (isNeighbour(relationship.fromId) && includeNode(relationship.toId)) {
+                collectRelationship(relationship.fromId, relationship.toId);
+            }
+            if (includeNode(relationship.fromId) && isNeighbour(relationship.toId)) {
+                collectRelationship(relationship.toId, relationship.fromId);
+            }
+        });
+
+        const snappingAngles = [6, 4, 3]
+            .map(denominator => Math.PI / denominator)
+            .flatMap(angle => [-1, -0.5, 0, 0.5].map(offset => offset * Math.PI + angle));
+
+        for (const neighbourA of neighbours) {
+            const relationshipDistances = [];
+
+            for (const relationship of neighbourRelationships[neighbourA.id] || []) {
+                const relationshipVector = relationship.nonNeighbour.position.vectorFrom(relationship.neighbour.position);
+                const distance = relationshipVector.distance();
+                const similarDistance = relationshipDistances.includes((entry) => Math.abs(entry - distance) < 0.01);
+                if (!similarDistance) {
+                    relationshipDistances.push(distance);
+                }
+
+                const guide = new LineGuide(neighbourA.position, relationshipVector.angle(), naturalPosition);
+                if (guide.error < grossTolerance) {
+                    possibleGuides.push(guide);
+                }
+            }
+
+            for (const distance of relationshipDistances) {
+                const distanceGuide = new CircleGuide(neighbourA.position, distance, naturalPosition);
+                if (distanceGuide.error < grossTolerance) {
+                    possibleGuides.push(distanceGuide);
+                }
+            }
+
+            snappingAngles.forEach(snappingAngle => {
+                const diagonalGuide = new LineGuide(neighbourA.position, snappingAngle, naturalPosition);
+                const offset = naturalPosition.vectorFrom(neighbourA.position);
+                if (diagonalGuide.error < grossTolerance && Math.abs(offset.angle() - snappingAngle) < angleTolerance) {
+                    possibleGuides.push(diagonalGuide);
+                }
+            });
+
+            for (const neighbourB of neighbours) {
+                if (neighbourA.id < neighbourB.id) {
+                    const interNeighbourVector = neighbourB.position.vectorFrom(neighbourA.position);
+                    const segment1 = naturalPosition.vectorFrom(neighbourA.position);
+                    const segment2 = neighbourB.position.vectorFrom(naturalPosition);
+                    const parallelGuide = new LineGuide(neighbourA.position, interNeighbourVector.angle(), naturalPosition);
+                    if (parallelGuide.error < grossTolerance && segment1.dot(segment2) > 0) {
+                        possibleGuides.push(parallelGuide);
+                    }
+
+                    const midPoint = neighbourA.position.translate(interNeighbourVector.scale(0.5));
+                    const perpendicularGuide = new LineGuide(
+                        midPoint,
+                        interNeighbourVector.rotate(Math.PI / 2).angle(),
+                        naturalPosition
+                    );
+
+                    if (perpendicularGuide.error < grossTolerance) {
+                        possibleGuides.push(perpendicularGuide);
+                    }
+                }
+            }
+        }
+
+        const columns = new Set();
+        const rows = new Set();
+        graph.nodes.forEach((node) => {
+            if (includeNode(node.id)) {
+                if (Math.abs(naturalPosition.x - node.position.x) < grossTolerance) {
+                    columns.add(node.position.x);
+                }
+                if (Math.abs(naturalPosition.y - node.position.y) < grossTolerance) {
+                    rows.add(node.position.y);
+                }
+            }
+        });
+        for (const column of columns) {
+            possibleGuides.push(new LineGuide(
+                new Point(column, naturalPosition.y),
+                Math.PI / 2,
+                naturalPosition
+            ));
+        }
+        for (const row of rows) {
+            possibleGuides.push(new LineGuide(
+                new Point(naturalPosition.x, row),
+                0,
+                naturalPosition
+            ));
+        }
+
+        const includedNodes = graph.nodes.filter(node => includeNode(node.id));
+        const intervalGuides = [];
+        for (const guide of possibleGuides) {
+            const intervalGuide = guide.intervalGuide(includedNodes, naturalPosition);
+            if (intervalGuide && intervalGuide.error < grossTolerance) {
+                intervalGuides.push(intervalGuide);
+            }
+        }
+        possibleGuides.push(...intervalGuides);
+
+        const candidateGuides = [...possibleGuides];
+        candidateGuides.sort(byAscendingError);
+
+        const guidelines = [];
+
+        while (guidelines.length === 0 && candidateGuides.length > 0) {
+            const candidateGuide = candidateGuides.shift();
+            if (candidateGuide.error < snapTolerance) {
+                guidelines.push(candidateGuide);
+                snappedPosition = candidateGuide.snap(naturalPosition);
+            }
+        }
+
+        while (guidelines.length === 1 && candidateGuides.length > 0) {
+            const candidateGuide = candidateGuides.shift();
+            const combination = guidelines[0].combine(candidateGuide, naturalPosition);
+            if (combination.possible) {
+                const error = combination.intersection.vectorFrom(naturalPosition).distance();
+                if (error < snapTolerance) {
+                    guidelines.push(candidateGuide);
+                    snappedPosition = combination.intersection;
+                }
+            }
+        }
+
+        const lineGuides = guidelines.filter(guide => guide.type === 'LINE');
+        for (const candidateGuide of possibleGuides) {
+            if (!guidelines.includes(candidateGuide) &&
+                candidateGuide.calculateError(snappedPosition) < 0.01) {
+                if (candidateGuide.type === 'LINE') {
+                    if (lineGuides.every(guide => !areParallel(guide, candidateGuide))) {
+                        lineGuides.push(candidateGuide);
+                        guidelines.push(candidateGuide);
+                    }
+                } else {
+                    guidelines.push(candidateGuide);
+                }
+            }
+        }
+
+        return {
+            snapped: guidelines.length > 0,
+            guidelines,
+            snappedPosition
+        }
+    };
+
+    const headerHeight = 40;
+    const footerHeight = 30;
+    const inspectorWidth = 425;
     const canvasPadding = 50;
 
-    // import {
+    const computeCanvasSize = (applicationLayout) => {
+        const {
+            windowSize,
+            inspectorVisible
+        } = applicationLayout;
+        return {
+            width: windowSize.width - (inspectorVisible ? inspectorWidth : 0),
+            height: windowSize.height - headerHeight - footerHeight - 2
+        }
+    };
+
+    const tryMoveNode = ({
+        nodeId,
+        oldMousePosition,
+        newMousePosition,
+        forcedNodePosition
+    }) => {
+        return function(dispatch, getState) {
+            const state = getState();
+            const {
+                viewTransformation,
+                mouse
+            } = state;
+            const visualGraph = getVisualGraph(state);
+            const graph = visualGraph.graph;
+            const visualNode = visualGraph.nodes[nodeId];
+            let naturalPosition;
+            const otherSelectedNodes = selectedNodeIds(state.selection).filter((selectedNodeId) => selectedNodeId !== nodeId);
+            const activelyMovedNode = graph.nodes.find((node) => idsMatch(node.id, nodeId));
+
+            if (forcedNodePosition) {
+                naturalPosition = forcedNodePosition;
+            } else {
+                const vector = newMousePosition.vectorFrom(oldMousePosition).scale(1 / viewTransformation.scale);
+                let currentPosition = getState().guides.naturalPosition || activelyMovedNode.position;
+
+                naturalPosition = currentPosition.translate(vector);
+            }
+
+            let snaps = snapToNeighbourDistancesAndAngles(graph, nodeId, naturalPosition, otherSelectedNodes);
+            let guides = new Guides();
+            let newPosition = naturalPosition;
+            if (snaps.snapped) {
+                guides = new Guides(snaps.guidelines, naturalPosition, visualNode.radius);
+                newPosition = snaps.snappedPosition;
+            }
+            const delta = newPosition.vectorFrom(activelyMovedNode.position);
+            const nodePositions = [{
+                nodeId,
+                position: newPosition
+            }];
+            otherSelectedNodes.forEach((otherNodeId) => {
+                nodePositions.push({
+                    nodeId: otherNodeId,
+                    position: graph.nodes.find((node) => idsMatch(node.id, otherNodeId)).position.translate(delta)
+                });
+            });
+
+            dispatch(moveNodes(oldMousePosition, newMousePosition || mouse.mousePosition, nodePositions, guides));
+        }
+    };
+
+    const moveNodes = (oldMousePosition, newMousePosition, nodePositions, guides, autoGenerated) => {
+        return {
+            category: 'GRAPH',
+            type: 'MOVE_NODES',
+            oldMousePosition,
+            newMousePosition,
+            nodePositions,
+            guides,
+            autoGenerated
+        }
+    };
+
+    const observedActionTypes = [
+        'NEW_GOOGLE_DRIVE_DIAGRAM',
+        'NEW_LOCAL_STORAGE_DIAGRAM',
+        'CREATE_NODE',
+        'MOVE_NODES',
+        'MOVE_NODES_END_DRAG',
+        'GETTING_GRAPH_SUCCEEDED',
+        'DUPLICATE_NODES_AND_RELATIONSHIPS',
+        'DELETE_NODES_AND_RELATIONSHIPS',
+        'WINDOW_RESIZED',
+        'TOGGLE_INSPECTOR',
+        'IMPORT_NODES_AND_RELATIONSHIPS'
+    ];
+
+    const nodeMovedOutsideCanvas = (visualGraph, canvasSize, viewTransformation, action) => {
+        const node = visualGraph.nodes[action.nodePositions[0].nodeId];
+        const nodeBoundingBox = node.boundingBox()
+            .scale(viewTransformation.scale)
+            .translate(viewTransformation.offset);
+
+        const canvasBoundingBox = new BoundingBox(
+            canvasPadding,
+            canvasSize.width - canvasPadding,
+            canvasPadding,
+            canvasSize.height - canvasPadding
+        );
+
+        return !canvasBoundingBox.containsBoundingBox(nodeBoundingBox)
+    };
 
     const calculateViewportTranslation = (visualGraph, canvasSize) => {
         const boundingBox = visualGraph.boundingBox();
@@ -4263,131 +4960,131 @@
         }
     };
 
-    // export const viewportMiddleware = store => next => action => {
-    //     const result = next(action)
+    const viewportMiddleware = store => next => action => {
+        const result = next(action);
 
-    //     if (!action.autoGenerated && observedActionTypes.includes(action.type)) {
-    //         const state = store.getState()
-    //         const {
-    //             applicationLayout,
-    //             viewTransformation,
-    //             mouse
-    //         } = state
-    //         const canvasSize = computeCanvasSize(applicationLayout)
-    //         const visualGraph = getVisualGraph(state)
+        if (!action.autoGenerated && observedActionTypes.includes(action.type)) {
+            const state = store.getState();
+            const {
+                applicationLayout,
+                viewTransformation,
+                mouse
+            } = state;
+            const canvasSize = computeCanvasSize(applicationLayout);
+            const visualGraph = getVisualGraph(state);
 
-    //         if (action.type === 'MOVE_NODES') {
-    //             const shouldScaleUp = nodeMovedOutsideCanvas(visualGraph, canvasSize, viewTransformation, action)
-    //             if (shouldScaleUp) {
-    //                 let {
-    //                     scale,
-    //                     translateVector
-    //                 } = calculateViewportTranslation(visualGraph, canvasSize)
+            if (action.type === 'MOVE_NODES') {
+                const shouldScaleUp = nodeMovedOutsideCanvas(visualGraph, canvasSize, viewTransformation, action);
+                if (shouldScaleUp) {
+                    let {
+                        scale,
+                        translateVector
+                    } = calculateViewportTranslation(visualGraph, canvasSize);
 
-    //                 store.dispatch(adjustViewport(scale, translateVector.dx, translateVector.dy))
+                    store.dispatch(adjustViewport(scale, translateVector.dx, translateVector.dy));
 
-    //                 if (mouse.mouseToNodeVector) {
-    //                     const newViewTransformation = new ViewTransformation(scale, new Vector(translateVector.dx, translateVector.dy))
-    //                     const mousePositionInGraph = newViewTransformation.inverse(action.newMousePosition || mouse.mousePosition)
+                    if (mouse.mouseToNodeVector) {
+                        const newViewTransformation = new ViewTransformation(scale, new Vector(translateVector.dx, translateVector.dy));
+                        const mousePositionInGraph = newViewTransformation.inverse(action.newMousePosition || mouse.mousePosition);
 
-    //                     const expectedNodePositionbyMouse = mousePositionInGraph.translate(mouse.mouseToNodeVector.scale(viewTransformation.scale))
-    //                     const differenceVector = expectedNodePositionbyMouse.vectorFrom(action.nodePositions[0].position)
+                        const expectedNodePositionbyMouse = mousePositionInGraph.translate(mouse.mouseToNodeVector.scale(viewTransformation.scale));
+                        const differenceVector = expectedNodePositionbyMouse.vectorFrom(action.nodePositions[0].position);
 
-    //                     // if (differenceVector.distance() > 1) {
-    //                     //     window.requestAnimationFrame(() => store.dispatch(tryMoveNode({
-    //                     //         nodeId: action.nodePositions[0].nodeId,
-    //                     //         oldMousePosition: action.oldMousePosition,
-    //                     //         newMousePosition: null,
-    //                     //         forcedNodePosition: expectedNodePositionbyMouse
-    //                     //     })))
-    //                     // }
-    //                 }
-    //             }
-    //         } else {
-    //             let {
-    //                 scale,
-    //                 translateVector
-    //             } = calculateViewportTranslation(visualGraph, canvasSize)
+                        if (differenceVector.distance() > 1) {
+                            window.requestAnimationFrame(() => store.dispatch(tryMoveNode({
+                                nodeId: action.nodePositions[0].nodeId,
+                                oldMousePosition: action.oldMousePosition,
+                                newMousePosition: null,
+                                forcedNodePosition: expectedNodePositionbyMouse
+                            })));
+                        }
+                    }
+                }
+            } else {
+                let {
+                    scale,
+                    translateVector
+                } = calculateViewportTranslation(visualGraph, canvasSize);
 
-    //             if (scale) {
-    //                 if (action.type === 'MOVE_NODES_END_DRAG') {
-    //                     if (scale > viewTransformation.scale) {
-    //                         let currentStep = 0
-    //                         let duration = 1000
-    //                         let fps = 60
+                if (scale) {
+                    if (action.type === 'MOVE_NODES_END_DRAG') {
+                        if (scale > viewTransformation.scale) {
+                            let currentStep = 0;
+                            let duration = 1000;
+                            let fps = 60;
 
-    //                         const targetViewTransformation = new ViewTransformation(scale, new Vector(translateVector.dx, translateVector.dy))
-    //                         const {
-    //                             scaleTable,
-    //                             panningTable
-    //                         } = calculateTransformationTable(viewTransformation, targetViewTransformation, duration / fps)
+                            const targetViewTransformation = new ViewTransformation(scale, new Vector(translateVector.dx, translateVector.dy));
+                            const {
+                                scaleTable,
+                                panningTable
+                            } = calculateTransformationTable(viewTransformation, targetViewTransformation, duration / fps);
 
-    //                         const animateScale = () => {
-    //                             setTimeout(() => {
-    //                                 const nextScale = scaleTable[currentStep]
-    //                                 const nextPan = panningTable[currentStep]
+                            const animateScale = () => {
+                                setTimeout(() => {
+                                    const nextScale = scaleTable[currentStep];
+                                    const nextPan = panningTable[currentStep];
 
-    //                                 store.dispatch(adjustViewport(nextScale, nextPan.dx, nextPan.dy))
+                                    store.dispatch(adjustViewport(nextScale, nextPan.dx, nextPan.dy));
 
-    //                                 currentStep++
-    //                                 if (currentStep < scaleTable.length) {
-    //                                     window.requestAnimationFrame(animateScale)
-    //                                 }
-    //                             }, 1000 / fps)
-    //                         }
+                                    currentStep++;
+                                    if (currentStep < scaleTable.length) {
+                                        window.requestAnimationFrame(animateScale);
+                                    }
+                                }, 1000 / fps);
+                            };
 
-    //                         window.requestAnimationFrame(animateScale)
-    //                     }
-    //                 } else {
-    //                     store.dispatch(adjustViewport(scale, translateVector.dx, translateVector.dy))
-    //                 }
-    //             }
-    //         }
-    //     }
+                            window.requestAnimationFrame(animateScale);
+                        }
+                    } else {
+                        store.dispatch(adjustViewport(scale, translateVector.dx, translateVector.dy));
+                    }
+                }
+            }
+        }
 
-    //     return result
-    // }
+        return result
+    };
 
-    // const calculateTransformationTable = (currentViewTransformation, targetViewTransformation, totalSteps) => {
-    //     let lastScale = currentViewTransformation.scale
-    //     const targetScale = targetViewTransformation.scale
-    //     const scaleByStep = (targetScale - lastScale) / totalSteps
+    const calculateTransformationTable = (currentViewTransformation, targetViewTransformation, totalSteps) => {
+        let lastScale = currentViewTransformation.scale;
+        const targetScale = targetViewTransformation.scale;
+        const scaleByStep = (targetScale - lastScale) / totalSteps;
 
-    //     let lastPan = {
-    //         dx: currentViewTransformation.offset.dx,
-    //         dy: currentViewTransformation.offset.dy
-    //     }
-    //     const panByStep = {
-    //         dx: (targetViewTransformation.offset.dx - lastPan.dx) / totalSteps,
-    //         dy: (targetViewTransformation.offset.dy - lastPan.dy) / totalSteps
-    //     }
+        let lastPan = {
+            dx: currentViewTransformation.offset.dx,
+            dy: currentViewTransformation.offset.dy
+        };
+        const panByStep = {
+            dx: (targetViewTransformation.offset.dx - lastPan.dx) / totalSteps,
+            dy: (targetViewTransformation.offset.dy - lastPan.dy) / totalSteps
+        };
 
-    //     const scaleTable = []
-    //     const panningTable = []
-    //     let stepIndex = 0
+        const scaleTable = [];
+        const panningTable = [];
+        let stepIndex = 0;
 
-    //     while (stepIndex < totalSteps - 1) {
-    //         lastScale += scaleByStep
-    //         lastPan = {
-    //             dx: lastPan.dx + panByStep.dx,
-    //             dy: lastPan.dy + panByStep.dy
-    //         }
+        while (stepIndex < totalSteps - 1) {
+            lastScale += scaleByStep;
+            lastPan = {
+                dx: lastPan.dx + panByStep.dx,
+                dy: lastPan.dy + panByStep.dy
+            };
 
-    //         scaleTable.push(lastScale)
-    //         panningTable.push(lastPan)
+            scaleTable.push(lastScale);
+            panningTable.push(lastPan);
 
-    //         stepIndex++
-    //     }
+            stepIndex++;
+        }
 
-    //     // because of decimal figures does not sum up to exact number
-    //     scaleTable.push(targetViewTransformation.scale)
-    //     panningTable.push(targetViewTransformation.offset)
+        // because of decimal figures does not sum up to exact number
+        scaleTable.push(targetViewTransformation.scale);
+        panningTable.push(targetViewTransformation.offset);
 
-    //     return {
-    //         scaleTable,
-    //         panningTable
-    //     }
-    // }
+        return {
+            scaleTable,
+            panningTable
+        }
+    };
 
     var commonjsGlobal = typeof globalThis !== 'undefined' ? globalThis : typeof window !== 'undefined' ? window : typeof global !== 'undefined' ? global : typeof self !== 'undefined' ? self : {};
 
@@ -5824,14 +6521,6 @@
         }
     };
 
-    class Guides {
-        constructor(guidelines = [], naturalPosition, naturalRadius) {
-            this.guidelines = guidelines;
-            this.naturalPosition = naturalPosition;
-            this.naturalRadius = naturalRadius;
-        }
-    }
-
     function guides(state = new Guides(), action) {
         switch (action.type) {
             case 'MOVE_NODES':
@@ -5913,37 +6602,6 @@
                 return state
         }
     };
-
-    class ViewTransformation {
-        constructor(scale = 1, offset = new Vector(0, 0)) {
-            this.scale = scale;
-            this.offset = offset;
-        }
-
-        zoom(scale) {
-            return new ViewTransformastion(scale, this.offset)
-        }
-
-        scroll(vector) {
-            return new ViewTransformation(this.scale, this.offset.plus(vector))
-        }
-
-        transform(point) {
-            return point.scale(this.scale).translate(this.offset)
-        }
-
-        inverse(point) {
-            return point.translate(this.offset.invert()).scale(1 / this.scale)
-        }
-
-        adjust(scale, panX, panY) {
-            return new ViewTransformation(scale, new Vector(panX, panY))
-        }
-
-        asCSSTransform() {
-            return `${this.offset.asCSSTransform()} scale(${this.scale})`
-        }
-    }
 
     const viewTransformation = (state = new ViewTransformation(), action) => {
         switch (action.type) {
@@ -6123,10 +6781,94 @@
         cachedImages
     });
 
+    const windowLocationHashMiddleware = store => next => action => {
+        const oldStorage = store.getState().storage;
+        const result = next(action);
+        const newStorage = store.getState().storage;
+
+        if (oldStorage !== newStorage && newStorage.status === 'READY') {
+            switch (newStorage.mode) {
+                case 'GOOGLE_DRIVE':
+                    if (newStorage.fileId) {
+                        window.location.hash = `#/googledrive/ids=${newStorage.fileId}`;
+                    }
+                    break
+                case 'DATABASE':
+                    window.location.hash = `#/neo4j`;
+                    break
+                case 'LOCAL_STORAGE':
+                    window.location.hash = `#/local/id=${newStorage.fileId}`;
+                    break
+            }
+        }
+
+        return result
+    };
+
+    const imageEvent = (imageUrl, cachedImage) => ({
+        type: 'IMAGE_EVENT',
+        imageUrl,
+        cachedImage
+    });
+
+    const imageCacheMiddleware = store => next => action => {
+        const result = next(action);
+
+        if (action.category === 'GRAPH') {
+            const state = store.getState();
+            const graph = getPresentGraph(state);
+            const cachedImages = state.cachedImages;
+
+            const referencedImageUrls = collectImageUrlsFromGraph(graph);
+            for (const imageUrl of referencedImageUrls) {
+                if (!containsCachedImage(cachedImages, imageUrl)) {
+                    const loadingImage = loadImage(imageUrl, (cachedImage) => {
+                        store.dispatch(imageEvent(imageUrl, cachedImage));
+                    }, (errorImage) => {
+                        store.dispatch(imageEvent(imageUrl, errorImage));
+                    });
+                    store.dispatch(imageEvent(imageUrl, loadingImage));
+                }
+            }
+        }
+
+        return result
+    };
+
+    const collectImageUrlsFromGraph = (graph) => {
+        const imageUrls = new Set();
+        collectImageUrlsFromStyle(imageUrls, graph.style);
+        for (const node of graph.nodes) {
+            collectImageUrlsFromStyle(imageUrls, node.style);
+        }
+        for (const relationship of graph.relationships) {
+            collectImageUrlsFromStyle(imageUrls, relationship.style);
+        }
+        return imageUrls
+    };
+
+    const collectImageUrlsFromStyle = (imageUrls, style) => {
+        for (const [key, value] of Object.entries(style)) {
+            if (imageAttributes.includes(key) && value) {
+                imageUrls.add(value);
+            }
+        }
+    };
+
+    const middleware = [
+        // recentStorageMiddleware,
+        // storageMiddleware,
+        windowLocationHashMiddleware,
+        viewportMiddleware,
+        imageCacheMiddleware
+    ];
+
     class StateController {
         constructor() {
             this.store = redux.exports.createStore(
                 arrowsAppReducers,
+                {},
+                redux.exports.applyMiddleware(...middleware)
             );
 
             this.instance = null;
@@ -6183,7 +6925,7 @@
 
             // 合并配置
             merge(this.options, options);
-
+            // redux 的store
             this.stateStore = StateController.getInstance().store;
 
 

@@ -41,7 +41,7 @@ export default class ArrowApp {
 
         // 合并配置
         merge(this.options, options)
-
+        // redux 的store
         this.stateStore = StateController.getInstance().store
 
 
