@@ -2,6 +2,7 @@ import {
     createStore,
     applyMiddleware
 } from '../library/redux.js'
+import thunkMiddleware from '../library/redux-thunk'
 import reducer from '../reducers/index'
 import { viewportMiddleware } from "../middlewares/viewportMiddleware"
 // import {storageMiddleware} from "../middlewares/storageMiddleware";
@@ -23,7 +24,7 @@ export default class StateController {
         this.store = createStore(
             reducer,
             {},
-            applyMiddleware(...middleware)
+            applyMiddleware(thunkMiddleware, ...middleware)
         )
 
         this.instance = null
