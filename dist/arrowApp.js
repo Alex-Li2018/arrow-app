@@ -892,6 +892,12 @@
 
   new Point(0, 0);
 
+  const average = (points) => {
+      const sumX = points.reduce((sum, point) => sum + point.x, 0);
+      const sumY = points.reduce((sum, point) => sum + point.y, 0);
+      return new Point(sumX / points.length, sumY / points.length)
+  };
+
   class BoundingBox {
       constructor(left, right, top, bottom) {
           this.left = left;
@@ -1628,6 +1634,10 @@
 
   function idsMatch(a, b) {
       return a === b
+  }
+
+  function nextId(id) {
+      return 'n' + (parseInt(id.substring(1)) + 1)
   }
 
   function nextAvailableId(entities, prefix = 'n') {
@@ -4709,14 +4719,14 @@
       }
   );
 
-  createSelector(
+  const getTransformationHandles = createSelector(
       [getVisualGraph, getSelection, getMouse, getViewTransformation],
       (visualGraph, selection, mouse, viewTransformation) => {
           return new TransformationHandles(visualGraph, selection, mouse, viewTransformation)
       }
   );
 
-  createSelector(
+  const getPositionsOfSelectedNodes = createSelector(
       [getVisualGraph, getSelection],
       (visualGraph, selection) => {
           const nodePositions = [];
@@ -6955,6 +6965,177 @@
       }
   };
 
+  const activateEditing = (entity) => ({
+      type: 'ACTIVATE_EDITING',
+      editing: entity
+  });
+
+  const toggleSelection = (entities, mode) => ({
+      type: 'TOGGLE_SELECTION',
+      entities: entities.map(entity => ({
+          entityType: entity.entityType,
+          id: entity.id
+      })),
+      mode
+  });
+
+  const clearSelection = () => ({
+      type: 'CLEAR_SELECTION',
+  });
+
+  const snapToTargetNode = (visualGraph, excludedNodeId, naturalPosition) => {
+      const targetNode = visualGraph.closestNode(naturalPosition, (visualNode, distance) => {
+          return !idsMatch(visualNode.id, excludedNodeId) && distance < visualNode.radius
+      });
+
+      return {
+          snapped: targetNode !== null,
+          snappedNodeId: targetNode ? targetNode.id : null,
+          snappedPosition: targetNode ? targetNode.position : null
+      }
+  };
+
+  const activateRing = (sourceNodeId, nodeType) => {
+      return {
+          type: 'ACTIVATE_RING',
+          sourceNodeId,
+          nodeType
+      }
+  };
+
+  const deactivateRing = () => {
+      return {
+          type: 'DEACTIVATE_RING'
+      }
+  };
+
+  const tryDragRing = (sourceNodeId, mousePosition) => {
+      return function(dispatch, getState) {
+          const state = getState();
+          const selection = state.selection;
+          const selected = selectedNodeIds(selection);
+          const secondarySourceNodeIds = selected.includes(sourceNodeId) ? selected.filter(nodeId => nodeId !== sourceNodeId) : [];
+
+          const visualGraph = getVisualGraph(state);
+          let newNodeRadius = visualGraph.graph.style.radius;
+          const graph = visualGraph.graph;
+          const sourceNode = graph.nodes.find((node) => idsMatch(node.id, sourceNodeId));
+          const primarySnap = snapToTargetNode(visualGraph, null, mousePosition);
+          if (primarySnap.snapped) {
+              const secondarySnaps = secondarySourceNodeIds.map(secondarySourceNodeId => {
+                  const secondarySourceNode = graph.nodes.find((node) => idsMatch(node.id, secondarySourceNodeId));
+                  const displacement = secondarySourceNode.position.vectorFrom(sourceNode.position);
+                  return snapToTargetNode(visualGraph, null, mousePosition.translate(displacement))
+              });
+              const targetNodeIds = [
+                  primarySnap.snappedNodeId,
+                  ...(secondarySnaps.every(snap => snap.snapped) ?
+                      secondarySnaps.map(snap => snap.snappedNodeId) :
+                      secondarySnaps.map(() => primarySnap.snappedNodeId))
+              ];
+              dispatch(ringDraggedConnected(
+                  sourceNodeId,
+                  secondarySourceNodeIds,
+                  targetNodeIds,
+                  primarySnap.snappedPosition,
+                  mousePosition
+              ));
+          } else {
+              const snap = snapToDistancesAndAngles(
+                  graph, [sourceNode],
+                  () => true,
+                  mousePosition
+              );
+              if (snap.snapped) {
+                  dispatch(ringDraggedDisconnected(
+                      sourceNodeId,
+                      secondarySourceNodeIds,
+                      snap.snappedPosition,
+                      new Guides(snap.guidelines, mousePosition, newNodeRadius),
+                      mousePosition
+                  ));
+              } else {
+                  dispatch(ringDraggedDisconnected(
+                      sourceNodeId,
+                      secondarySourceNodeIds,
+                      mousePosition,
+                      new Guides(),
+                      mousePosition
+                  ));
+              }
+          }
+      }
+  };
+
+  const ringDraggedDisconnected = (sourceNodeId, secondarySourceNodeIds, position, guides, newMousePosition) => {
+      return {
+          type: 'RING_DRAGGED',
+          sourceNodeId,
+          secondarySourceNodeIds,
+          targetNodeIds: [],
+          position,
+          guides,
+          newMousePosition
+      }
+  };
+
+  const ringDraggedConnected = (sourceNodeId, secondarySourceNodeIds, targetNodeIds, position, newMousePosition) => {
+      return {
+          type: 'RING_DRAGGED',
+          sourceNodeId,
+          secondarySourceNodeIds,
+          targetNodeIds,
+          position,
+          guides: new Guides(),
+          newMousePosition
+      }
+  };
+
+  const setMarquee = (from, to) => ({
+      type: 'SET_MARQUEE',
+      marquee: {
+          from,
+          to
+      },
+      newMousePosition: to
+  });
+
+  const selectItemsInMarquee = () => {
+      return function(dispatch, getState) {
+          const state = getState();
+          const marquee = state.gestures.selectionMarquee;
+          if (marquee) {
+              const visualGraph = getVisualGraph(state);
+              const boundingBox = getBBoxFromCorners(marquee);
+              const entities = visualGraph.entitiesInBoundingBox(boundingBox);
+              if (entities.length > 0) {
+                  dispatch(toggleSelection(entities, 'or'));
+              }
+          }
+      }
+  };
+
+  const getBBoxFromCorners = ({
+      from,
+      to
+  }) => new BoundingBox(
+      Math.min(from.x, to.x),
+      Math.max(from.x, to.x),
+      Math.min(from.y, to.y),
+      Math.max(from.y, to.y)
+  );
+
+  const getEventHandlers = (state, eventName) => {
+      return state.applicationLayout.layers.reduce((handlers, layer) => {
+          const layerEvent = layer.eventHandlers[eventName];
+          if (layerEvent) {
+              return handlers.concat([layerEvent])
+          } else {
+              return handlers
+          }
+      }, [])
+  };
+
   const headerHeight = 40;
   const footerHeight = 30;
   const inspectorWidth = 425;
@@ -6971,11 +7152,563 @@
       }
   };
 
+  const subtractPadding = (canvasSize) => {
+      return {
+          width: canvasSize.width - canvasPadding * 2,
+          height: canvasSize.height - canvasPadding * 2
+      }
+  };
+
+  const toGraphPosition = (state, canvasPosition) => state.viewTransformation.inverse(canvasPosition);
+
+  const wheel = (canvasPosition, vector, ctrlKey) => {
+      return function(dispatch, getState) {
+          const state = getState();
+          const boundingBox = getVisualGraph(state).boundingBox();
+          const currentScale = state.viewTransformation.scale;
+          const canvasSize = subtractPadding(computeCanvasSize(state.applicationLayout));
+
+          if (ctrlKey) {
+              const graphPosition = toGraphPosition(state, canvasPosition);
+              const fitWidth = canvasSize.width / boundingBox.width;
+              const fitHeight = canvasSize.height / boundingBox.height;
+              const minScale = Math.min(1, fitWidth, fitHeight);
+              const scale = Math.max(currentScale * (100 - vector.dy) / 100, minScale);
+              const rawOffset = canvasPosition.vectorFrom(graphPosition.scale(scale));
+              const constrainedOffset = constrainScroll(boundingBox, scale, rawOffset, canvasSize);
+              const shouldCenter = scale <= fitHeight && scale <= fitWidth && vector.dy > 0;
+              const offset = shouldCenter ? moveTowardCenter(minScale, constrainedOffset, boundingBox, canvasSize) : constrainedOffset;
+              dispatch(adjustViewport(scale, offset.dx, offset.dy));
+          } else {
+              const rawOffset = state.viewTransformation.offset.plus(vector.scale(currentScale).invert());
+              const offset = constrainScroll(boundingBox, currentScale, rawOffset, canvasSize);
+              dispatch(adjustViewport(currentScale, offset.dx, offset.dy));
+          }
+      }
+  };
+
+  const moveTowardCenter = (minScale, offset, boundingBox, canvasSize) => {
+      const dimensions = [{
+              component: 'dx',
+              min: 'left',
+              max: 'right',
+              extent: 'width'
+          },
+          {
+              component: 'dy',
+              min: 'top',
+              max: 'bottom',
+              extent: 'height'
+          }
+      ];
+
+      const [dx, dy] = dimensions.map(d => {
+          const currentDisplacement = offset[d.component];
+          const centreDisplacement = canvasPadding + canvasSize[d.extent] / 2 - (boundingBox[d.max] + boundingBox[d.min]) * minScale / 2;
+          const difference = centreDisplacement - currentDisplacement;
+          if (Math.abs(difference) > 1) {
+              return currentDisplacement + difference * 0.1
+          }
+          return currentDisplacement
+      });
+      return new Vector(dx, dy)
+  };
+
+  const constrainScroll = (boundingBox, scale, effectiveOffset, canvasSize) => {
+      const constrainedOffset = new Vector(effectiveOffset.dx, effectiveOffset.dy);
+
+      const dimensions = [{
+              component: 'dx',
+              min: 'left',
+              max: 'right',
+              extent: 'width'
+          },
+          {
+              component: 'dy',
+              min: 'top',
+              max: 'bottom',
+              extent: 'height'
+          }
+      ];
+
+      const flip = (tooLarge, boundary) => {
+          return tooLarge ? !boundary : boundary
+      };
+
+      dimensions.forEach(d => {
+          const tooLarge = boundingBox[d.extent] * scale > canvasSize[d.extent];
+          const min = boundingBox[d.min] * scale + effectiveOffset[d.component];
+          if (flip(tooLarge, min < canvasPadding)) {
+              constrainedOffset[d.component] = canvasPadding - boundingBox[d.min] * scale;
+          }
+          const max = boundingBox[d.max] * scale + effectiveOffset[d.component];
+          if (flip(tooLarge, max > canvasPadding + canvasSize[d.extent])) {
+              constrainedOffset[d.component] = canvasPadding + canvasSize[d.extent] - boundingBox[d.max] * scale;
+          }
+      });
+
+      return constrainedOffset
+  };
+
+  const doubleClick = (canvasPosition) => {
+      return function(dispatch, getState) {
+          const state = getState();
+          const visualGraph = getVisualGraph(state);
+          const graphPosition = toGraphPosition(state, canvasPosition);
+          const item = visualGraph.entityAtPoint(graphPosition);
+          if (item) {
+              dispatch(activateEditing(item));
+          }
+      }
+  };
+
+  const mouseDown = (canvasPosition, multiSelectModifierKey) => {
+      return function(dispatch, getState) {
+          const state = getState();
+          const visualGraph = getVisualGraph(state);
+          const transformationHandles = getTransformationHandles(state);
+          const graphPosition = toGraphPosition(state, canvasPosition);
+
+          const handle = transformationHandles.handleAtPoint(canvasPosition);
+          if (handle) {
+              dispatch(mouseDownOnHandle(handle.corner, canvasPosition, getPositionsOfSelectedNodes(state)));
+          } else {
+              const item = visualGraph.entityAtPoint(graphPosition);
+              if (item) {
+                  switch (item.entityType) {
+                      case 'node':
+                          dispatch(toggleSelection([item], multiSelectModifierKey ? 'xor' : 'at-least'));
+                          dispatch(mouseDownOnNode(item, canvasPosition, graphPosition));
+                          break
+
+                      case 'relationship':
+                          dispatch(toggleSelection([item], multiSelectModifierKey ? 'xor' : 'at-least'));
+                          break
+
+                      case 'nodeRing':
+                          dispatch(mouseDownOnNodeRing(item, canvasPosition));
+                          break
+                  }
+              } else {
+                  if (!multiSelectModifierKey) {
+                      dispatch(clearSelection());
+                  }
+                  dispatch(mouseDownOnCanvas(canvasPosition, graphPosition));
+              }
+          }
+      }
+  };
+
+  const mouseDownOnHandle = (corner, canvasPosition, nodePositions) => ({
+      type: 'MOUSE_DOWN_ON_HANDLE',
+      corner,
+      canvasPosition,
+      nodePositions
+  });
+
+  const lockHandleDragType = (dragType) => ({
+      type: 'LOCK_HANDLE_DRAG_MODE',
+      dragType
+  });
+
+  const mouseDownOnNode = (node, canvasPosition, graphPosition) => ({
+      type: 'MOUSE_DOWN_ON_NODE',
+      node,
+      position: canvasPosition,
+      graphPosition
+  });
+
+  const mouseDownOnNodeRing = (node, canvasPosition) => ({
+      type: 'MOUSE_DOWN_ON_NODE_RING',
+      node,
+      position: canvasPosition
+  });
+
+  const mouseDownOnCanvas = (canvasPosition, graphPosition) => ({
+      type: 'MOUSE_DOWN_ON_CANVAS',
+      canvasPosition,
+      graphPosition
+  });
+
+  const furtherThanDragThreshold = (previousPosition, newPosition) => {
+      const movementDelta = newPosition.vectorFrom(previousPosition);
+      return movementDelta.distance() >= 3
+  };
+
+  const mouseMove = (canvasPosition) => {
+      return function(dispatch, getState) {
+          const state = getState();
+          const visualGraph = getVisualGraph(state);
+          const graphPosition = toGraphPosition(state, canvasPosition);
+          const dragging = state.gestures.dragToCreate;
+          const mouse = state.mouse;
+          const previousPosition = mouse.mousePosition;
+
+          const eventHandlers = getEventHandlers(state, 'mouseMove');
+          const preventDefault = eventHandlers.reduce((prevented, handler) => handler({
+              mouse,
+              dispatch
+          }) || prevented, false);
+
+          if (!preventDefault) {
+              switch (mouse.dragType) {
+                  case 'NONE':
+                      const item = visualGraph.entityAtPoint(graphPosition);
+                      if (item && item.entityType === 'nodeRing') {
+                          if (dragging.sourceNodeId === null || (dragging.sourceNodeId && item.id !== dragging.sourceNodeId)) {
+                              dispatch(activateRing(item.id, item.type));
+                          }
+                      } else {
+                          if (dragging.sourceNodeId !== null) {
+                              dispatch(deactivateRing());
+                          }
+                      }
+                      break
+
+                  case 'HANDLE':
+                  case 'HANDLE_ROTATE':
+                  case 'HANDLE_SCALE':
+                      if (mouse.dragged || furtherThanDragThreshold(previousPosition, canvasPosition)) {
+                          dispatch(tryMoveHandle({
+                              dragType: mouse.dragType,
+                              corner: mouse.corner,
+                              initialNodePositions: mouse.initialNodePositions,
+                              initialMousePosition: mouse.initialMousePosition,
+                              newMousePosition: canvasPosition
+                          }));
+                      }
+                      break
+
+                  case 'NODE':
+                      if (mouse.dragged || furtherThanDragThreshold(previousPosition, canvasPosition)) {
+                          dispatch(tryMoveNode({
+                              nodeId: mouse.node.id,
+                              oldMousePosition: previousPosition,
+                              newMousePosition: canvasPosition
+                          }));
+                      }
+                      break
+
+                  case 'NODE_RING':
+                      dispatch(tryDragRing(mouse.node.id, graphPosition));
+                      break
+
+                  case 'CANVAS':
+                  case 'MARQUEE':
+                      dispatch(setMarquee(mouse.mouseDownPosition, graphPosition));
+                      break
+              }
+          }
+      }
+  };
+
+  const mouseUp = () => {
+      return function(dispatch, getState) {
+          const state = getState();
+          const mouse = state.mouse;
+          const graph = getPresentGraph(state);
+
+          const eventHandlers = getEventHandlers(state, 'mouseUp');
+          const preventDefault = eventHandlers.reduce((prevented, handler) => handler({
+              state,
+              dispatch
+          }) || prevented, false);
+
+          if (!preventDefault) {
+              switch (mouse.dragType) {
+                  case 'MARQUEE':
+                      dispatch(selectItemsInMarquee());
+                      break
+                  case 'HANDLE':
+                      dispatch(moveNodesEndDrag(getPositionsOfSelectedNodes(state)));
+                      break
+                  case 'NODE':
+                      dispatch(moveNodesEndDrag(getPositionsOfSelectedNodes(state)));
+                      break
+                  case 'NODE_RING':
+                      const dragToCreate = state.gestures.dragToCreate;
+
+                      if (dragToCreate.sourceNodeId) {
+                          if (dragToCreate.targetNodeIds.length > 0) {
+                              dispatch(connectNodes(
+                                  [dragToCreate.sourceNodeId, ...dragToCreate.secondarySourceNodeIds],
+                                  dragToCreate.targetNodeIds
+                              ));
+                          } else if (dragToCreate.newNodePosition) {
+                              const sourceNodePosition = graph.nodes.find(node => node.id === dragToCreate.sourceNodeId).position;
+                              const targetNodeDisplacement = dragToCreate.newNodePosition.vectorFrom(sourceNodePosition);
+                              dispatch(createNodesAndRelationships(
+                                  [dragToCreate.sourceNodeId, ...dragToCreate.secondarySourceNodeIds],
+                                  targetNodeDisplacement
+                              ));
+                          }
+                      }
+                      break
+              }
+          }
+
+          dispatch(endDrag());
+      }
+  };
+
+  const endDrag = () => {
+      return {
+          type: 'END_DRAG'
+      }
+  };
+
+  class HandleGuide {
+
+      constructor(handlePosition) {
+          this.handlePosition = handlePosition;
+      }
+
+      get type() {
+          return 'HANDLE'
+      }
+  }
+
   const initGraph = (graph) => ({
       category: 'GRAPH',
       type: 'INIT_GRAPH',
       graph
   });
+
+  const createNodesAndRelationships = (sourceNodeIds, targetNodeDisplacement) => (dispatch, getState) => {
+      const graph = getPresentGraph(getState());
+
+      const newRelationshipIds = [];
+      const targetNodeIds = [];
+      let newRelationshipId = nextAvailableId(graph.relationships);
+      let targetNodeId = nextAvailableId(graph.nodes);
+
+      const targetNodePositions = [];
+
+      sourceNodeIds.forEach((sourceNodeId) => {
+          newRelationshipIds.push(newRelationshipId);
+          targetNodeIds.push(targetNodeId);
+
+          newRelationshipId = nextId(newRelationshipId);
+          targetNodeId = nextId(targetNodeId);
+
+          const sourceNodePosition = graph.nodes.find(node => node.id === sourceNodeId).position;
+          targetNodePositions.push(sourceNodePosition.translate(targetNodeDisplacement));
+      });
+
+      dispatch({
+          category: 'GRAPH',
+          type: 'CREATE_NODES_AND_RELATIONSHIPS',
+          sourceNodeIds,
+          newRelationshipIds,
+          targetNodeIds,
+          targetNodePositions,
+          caption: '',
+          style: {}
+      });
+  };
+
+  const connectNodes = (sourceNodeIds, targetNodeIds) => (dispatch, getState) => {
+      const graph = getPresentGraph(getState());
+      const newRelationshipIds = [];
+      let newRelationshipId = nextAvailableId(graph.relationships);
+      sourceNodeIds.forEach(() => {
+          newRelationshipIds.push(newRelationshipId);
+          newRelationshipId = nextId(newRelationshipId);
+      });
+
+      dispatch({
+          category: 'GRAPH',
+          type: 'CONNECT_NODES',
+          sourceNodeIds,
+          newRelationshipIds,
+          targetNodeIds
+      });
+  };
+
+  const tryMoveHandle = ({
+      dragType,
+      corner,
+      initialNodePositions,
+      initialMousePosition,
+      newMousePosition
+  }) => {
+      function applyScale(vector, viewTransformation, dispatch, mouse) {
+          const maxDiameter = Math.max(...initialNodePositions.map(entry => entry.radius)) * 2;
+
+          const dimensions = ['x', 'y'];
+          const ranges = {};
+
+          const choose = (mode, min, max, other) => {
+              switch (mode) {
+                  case 'min':
+                      return min
+                  case 'max':
+                      return max
+                  default:
+                      return other
+              }
+          };
+
+          dimensions.forEach(dimension => {
+              const coordinates = initialNodePositions.map(entry => entry.position[dimension]);
+              const min = Math.min(...coordinates);
+              const max = Math.max(...coordinates);
+              const oldSpread = max - min;
+              let newSpread = choose(
+                  corner[dimension],
+                  oldSpread - vector['d' + dimension],
+                  oldSpread + vector['d' + dimension],
+                  oldSpread
+              );
+              if (newSpread < 0) {
+                  if (newSpread < -maxDiameter) {
+                      newSpread += maxDiameter;
+                  } else {
+                      newSpread = 0;
+                  }
+              }
+              ranges[dimension] = {
+                  min,
+                  max,
+                  oldSpread,
+                  newSpread
+              };
+          });
+          const snapRatios = [-1, 1];
+          if (corner.x !== 'mid' && corner.y !== 'mid') {
+              let ratio = Math.max(...dimensions.map(dimension => {
+                  const range = ranges[dimension];
+                  return range.newSpread / range.oldSpread;
+              }));
+              let smallestSpread = Math.min(...dimensions.map(dimension => ranges[dimension].oldSpread));
+              snapRatios.forEach(snapRatio => {
+                  if (Math.abs(ratio - snapRatio) * smallestSpread < snapTolerance) {
+                      ratio = snapRatio;
+                  }
+              });
+              dimensions.forEach(dimension => {
+                  const range = ranges[dimension];
+                  range.newSpread = range.oldSpread * ratio;
+              });
+          } else {
+              dimensions.forEach(dimension => {
+                  const range = ranges[dimension];
+                  let ratio = range.newSpread / range.oldSpread;
+                  snapRatios.forEach(snapRatio => {
+                      if (Math.abs(ratio - snapRatio) * range.oldSpread < snapTolerance) {
+                          ratio = snapRatio;
+                      }
+                  });
+                  range.newSpread = range.oldSpread * ratio;
+              });
+          }
+
+          const coordinate = (position, dimension) => {
+              const original = position[dimension];
+              const range = ranges[dimension];
+              switch (corner[dimension]) {
+                  case 'min':
+                      return range.max - (range.max - original) * range.newSpread / range.oldSpread
+                  case 'max':
+                      return range.min + (original - range.min) * range.newSpread / range.oldSpread
+                  default:
+                      return original
+              }
+          };
+
+          const nodePositions = initialNodePositions.map(entry => {
+              return {
+                  nodeId: entry.nodeId,
+                  position: new Point(
+                      coordinate(entry.position, 'x'),
+                      coordinate(entry.position, 'y')
+                  )
+              }
+          });
+
+          const guidelines = [];
+          guidelines.push(new HandleGuide(viewTransformation.inverse(newMousePosition)));
+          dimensions.forEach(dimension => {
+              if (corner[dimension] !== 'mid') {
+                  const range = ranges[dimension];
+                  const guideline = {};
+                  guideline.type = dimension === 'x' ? 'VERTICAL' : 'HORIZONTAL';
+                  guideline[dimension] = corner[dimension] === 'min' ? range.max : range.min;
+                  guidelines.push(guideline);
+              }
+          });
+
+          dispatch(moveNodes(initialMousePosition, newMousePosition || mouse.mousePosition, nodePositions, new Guides(guidelines)));
+      }
+
+      function applyRotation(viewTransformation, dispatch, mouse) {
+
+          const center = average(initialNodePositions.map(entry => entry.position));
+          const initialOffset = viewTransformation.inverse(initialMousePosition).vectorFrom(center);
+          const radius = initialOffset.distance();
+          const guidelines = [];
+          guidelines.push(new CircleGuide(center, radius, newMousePosition));
+
+          const initialAngle = initialOffset.angle();
+          let newAngle = viewTransformation.inverse(newMousePosition).vectorFrom(center).angle();
+          let rotationAngle = newAngle - initialAngle;
+          const snappedAngle = Math.round(rotationAngle / angleTolerance) * angleTolerance;
+          const snapError = Math.abs(rotationAngle - snappedAngle);
+          if (snapError < Math.PI / 20) {
+              rotationAngle = snappedAngle;
+              newAngle = initialAngle + rotationAngle;
+              guidelines.push(new LineGuide(center, initialAngle, newMousePosition));
+              guidelines.push(new LineGuide(center, newAngle, newMousePosition));
+          }
+          guidelines.push(new HandleGuide(center.translate(initialOffset.rotate(rotationAngle))));
+
+          const nodePositions = initialNodePositions.map(entry => {
+              return {
+                  nodeId: entry.nodeId,
+                  position: center.translate(entry.position.vectorFrom(center).rotate(rotationAngle))
+              }
+          });
+
+          const guides = new Guides(guidelines);
+
+          dispatch(moveNodes(initialMousePosition, newMousePosition || mouse.mousePosition, nodePositions, guides));
+      }
+
+      return function(dispatch, getState) {
+          const {
+              viewTransformation,
+              mouse
+          } = getState();
+
+          const mouseVector = newMousePosition.vectorFrom(initialMousePosition).scale(1 / viewTransformation.scale);
+
+          let mode = dragType;
+          if (mode === 'HANDLE') {
+              const center = average(initialNodePositions.map(entry => entry.position));
+              const centerVector = viewTransformation.inverse(initialMousePosition).vectorFrom(center);
+
+              if (Math.abs(centerVector.unit().dot(mouseVector.unit())) < 0.5) {
+                  mode = 'HANDLE_ROTATE';
+              } else {
+                  mode = 'HANDLE_SCALE';
+              }
+
+              if (mouseVector.distance() > 20) {
+                  dispatch(lockHandleDragType(mode));
+              }
+          }
+
+          switch (mode) {
+              case 'HANDLE_ROTATE':
+                  applyRotation(viewTransformation, dispatch, mouse);
+                  break
+
+              case 'HANDLE_SCALE':
+                  applyScale(mouseVector, viewTransformation, dispatch, mouse);
+                  break
+          }
+      }
+  };
 
   const tryMoveNode = ({
       nodeId,
@@ -7037,6 +7770,14 @@
           nodePositions,
           guides,
           autoGenerated
+      }
+  };
+
+  const moveNodesEndDrag = (nodePositions) => {
+      return {
+          category: 'GRAPH',
+          type: 'MOVE_NODES_END_DRAG',
+          nodePositions
       }
   };
 
@@ -7297,6 +8038,7 @@
       }
   };
 
+  // 执行顺讯 windowLocationHashMiddleware -> viewportMiddleware -> imageCacheMiddleware
   const middleware = [
       // recentStorageMiddleware,
       // storageMiddleware,
@@ -7338,6 +8080,75 @@
       }
   };
 
+  const isMac = navigator.appVersion.indexOf('Mac') !== -1;
+
+  class MouseHandler {
+      constructor(canvas) {
+          this.canvas = canvas;
+
+          this.canvas.addEventListener('wheel', this.handleWheel.bind(this));
+          this.canvas.addEventListener('dblclick', this.handleDoubleClick.bind(this));
+          this.canvas.addEventListener('mousemove', this.handleMouseMove.bind(this));
+          this.canvas.addEventListener('mousedown', this.handleMouseDown.bind(this));
+          this.canvas.addEventListener('mouseup', this.handleMouseUp.bind(this));
+          this.canvas.addEventListener('mouseleave', this.handleMouseLeave.bind(this));
+      }
+
+      setDispatch(dispatch) {
+          this.dispatch = dispatch;
+      }
+
+      handleWheel(evt) {
+          this.dispatch(wheel(this.canvasPosition(evt), new Vector(evt.deltaX, evt.deltaY), evt.ctrlKey));
+          evt.preventDefault();
+      }
+
+      handleDoubleClick(evt) {
+          this.dispatch(doubleClick(this.canvasPosition(evt)));
+          evt.preventDefault();
+      }
+
+      handleMouseMove(evt) {
+          if (evt.button !== 0) {
+              return
+          }
+          this.dispatch(mouseMove(this.canvasPosition(evt)));
+          evt.preventDefault();
+      }
+
+      handleMouseDown(evt) {
+          if (evt.button !== 0) {
+              return
+          }
+
+          this.dispatch(mouseDown(this.canvasPosition(evt), isMac ? evt.metaKey : evt.ctrlKey));
+          evt.preventDefault();
+      }
+
+      handleMouseUp(evt) {
+          if (evt.button !== 0) {
+              return
+          }
+
+          this.dispatch(mouseUp(this.canvasPosition(evt)));
+          evt.preventDefault();
+      }
+
+      handleMouseLeave(evt) {
+          this.dispatch(endDrag());
+          evt.preventDefault();
+      }
+
+      canvasPosition(event) {
+          let rect = this.canvas.getBoundingClientRect();
+          // TODO Origin of right / bottom ISSUE ???
+          return new Point(
+              event.clientX - rect.left,
+              event.clientY - rect.top
+          )
+      }
+  }
+
   function merge(target, source) {
       Object.keys(source).forEach((property) => {
           target[property] = source[property];
@@ -7369,19 +8180,23 @@
               height: '100%'
           };
 
-          // 合并配置
+          // merge options
           merge(this.options, options);
 
-          // redux 的store
+          // redux store
           this.stateStore = StateController.getInstance().store;
 
-          // 触发事件获取全局数据
+          // dispatch initGraph event
           this.stateStore.dispatch(initGraph(graph));
-          // 视窗尺寸变化
+          // dispatch windowResized
           this.stateStore.dispatch(windowResized(this.options.width, this.options.height));
 
-          // 适配二倍屏
+          // fit canvas
           this.fitCanvasSize(this.canvas, this.options);
+
+          // event listener
+          this.mouseHandler = new MouseHandler(this.canvas);
+          this.mouseHandler.setDispatch(this.stateStore.dispatch);
 
           // render
           this.renderVisuals();

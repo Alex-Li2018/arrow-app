@@ -1,8 +1,3 @@
-import find from 'lodash.find'
-import {
-    withProps
-} from 'recompose'
-
 export const SELECT_ALL = 'SELECT_ALL'
 export const DESELECT_ALL_NODES = 'DESELECT_ALL_NODES'
 export const INVERT_SELECTION = 'INVERT_SELECTION'
@@ -96,48 +91,7 @@ const KeyBindings = {
     }]
 }
 
-const actions = {}
-
 export const isMac = navigator.appVersion.indexOf('Mac') !== -1
-
-const findAction = ({
-        altKey,
-        ctrlKey,
-        metaKey,
-        shiftKey,
-        keyCode
-    }) =>
-    find(actions, ({
-            bindings
-        }) =>
-        find(bindings, (binding) =>
-            (keyCode === binding.code || (binding.codeRange && keyCode >= binding.codeRange.min && keyCode <= binding.codeRange.max)) &&
-            (binding.altKey === 'optional' || altKey === !!binding.altKey) &&
-            (binding.ctrlKey === 'optional' || ctrlKey === !!binding.ctrlKey || (!isMac && ctrlKey === !!binding.metaKey)) &&
-            (binding.metaKey === 'optional' || metaKey === !!binding.metaKey || (!isMac && ctrlKey === !!binding.metaKey)) &&
-            (binding.shiftKey === 'optional' || shiftKey === !!binding.shiftKey)
-        )
-    )
-
-const hocProps = {
-    registerAction: (name, handler) => (actions[name] = {
-        bindings: KeyBindings[name],
-        handler
-    }),
-    fireAction: (event, ...args) => {
-        const action = findAction(event)
-        if (action) {
-            action.handler({
-                altKey: event.altKey,
-                ctrlKey: event.ctrlKey,
-                metaKey: event.metaKey,
-                shiftKey: event.shiftKey
-            }, ...args)
-        }
-
-        return !!action
-    }
-}
 
 export const getKeybindingString = name => {
     const binding = KeyBindings[name][0]
@@ -170,5 +124,3 @@ export const ignoreTarget = ({
         tagName
     }
 }) => tagName === 'INPUT' || tagName === 'TEXTAREA' || tagName === 'SELECT'
-
-export default withProps(hocProps)

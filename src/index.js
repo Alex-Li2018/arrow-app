@@ -3,6 +3,7 @@ import CanvasAdaptor from "./graphics/utils/CanvasAdaptor";
 import StateController from './stateController/index';
 import { initGraph } from './actions/graph'
 import { windowResized } from "./actions/applicationLayout";
+import MouseHandler from "./interactions/MouseHandler"
 
 function merge(target, source) {
     Object.keys(source).forEach((property) => {
@@ -35,19 +36,23 @@ export default class ArrowApp {
             height: '100%'
         }
 
-        // 合并配置
+        // merge options
         merge(this.options, options)
 
-        // redux 的store
+        // redux store
         this.stateStore = StateController.getInstance().store
 
-        // 触发事件获取全局数据
+        // dispatch initGraph event
         this.stateStore.dispatch(initGraph(graph))
-        // 视窗尺寸变化
+        // dispatch windowResized
         this.stateStore.dispatch(windowResized(this.options.width, this.options.height))
 
-        // 适配二倍屏
+        // fit canvas
         this.fitCanvasSize(this.canvas, this.options)
+
+        // event listener
+        this.mouseHandler = new MouseHandler(this.canvas)
+        this.mouseHandler.setDispatch(this.stateStore.dispatch)
 
         // render
         this.renderVisuals()
