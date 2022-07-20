@@ -1,6 +1,5 @@
 import { getVisualGraph } from './selectors/index'
 import CanvasAdaptor from "./graphics/utils/CanvasAdaptor";
-import { calculateViewportTranslation } from './middlewares/viewportMiddleware'
 import StateController from './stateController/index';
 import { initGraph } from './actions/graph'
 
@@ -30,10 +29,6 @@ const layerManager = (() => {
 export default class ArrowApp {
     constructor(domString, graph, options) {
         this.canvas = document.getElementById(domString)
-        this.selection = {
-            editing: undefined,
-            entities: []
-        }
         this.options = {
             width: '100%',
             height: '100%'
@@ -41,20 +36,18 @@ export default class ArrowApp {
 
         // 合并配置
         merge(this.options, options)
+
         // redux 的store
         this.stateStore = StateController.getInstance().store
+
         // 触发事件获取全局数据
         this.stateStore.dispatch(initGraph(graph))
-        
+
         // 适配二倍屏
         this.fitCanvasSize(this.canvas, this.options)
-        const visualGraph = getVisualGraph(graph, this.selection, '')
-        this.options.viewTransformation = calculateViewportTranslation(visualGraph, {width: this.options.width, height: this.options.height})
 
-        this.renderVisuals({
-            visualGraph,
-            displayOptions: this.options
-        })
+        // render
+        this.renderVisuals()
     }
 
     fitCanvasSize(canvas, {
@@ -92,10 +85,17 @@ export default class ArrowApp {
     }
 
     // 可视化渲染
-    renderVisuals({
-        visualGraph,
-        displayOptions
-    }) {
+    renderVisuals() {
+        const state = this.stateStore.getState()
+
+        const visualGraph = getVisualGraph(state)
+        const displayOptions = {
+            width: this.options.width,
+            height: this.options.height,
+            viewTransformation: state.viewTransformation
+        }
+
+
         const ctx = this.canvas.getContext('2d');
         ctx.clearRect(0, 0, displayOptions.width, displayOptions.height);
     
