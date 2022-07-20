@@ -5539,7 +5539,6 @@
       switch (action.type) {
           case 'INIT_GRAPH':
               {
-                  console.log(action);
                   const newNodes = action.graph.nodes.map(item => ({
                       ...item,
                       position: new Point(item.position.x, item.position.y)
@@ -6443,18 +6442,6 @@
 
   var features = (state = initialState, action) => initialState;
 
-  var googleDrive = (state = {}, action) => {
-      switch (action.type) {
-          case 'GOOGLE_DRIVE_SIGN_IN_STATUS':
-              return {
-                  apiInitialized: true,
-                  signedIn: action.signedIn
-              }
-          default:
-              return state
-      }
-  };
-
   function cachedImages(state = {}, action) {
       if (action.type === 'IMAGE_EVENT') {
           return {
@@ -6481,7 +6468,6 @@
       // applicationDialogs,
       gangs,
       features,
-      googleDrive,
       cachedImages
   });
 

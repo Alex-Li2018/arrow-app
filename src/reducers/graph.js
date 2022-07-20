@@ -39,7 +39,6 @@ const graph = (state = emptyGraph(), action) => {
     switch (action.type) {
         case 'INIT_GRAPH':
             {
-                console.log(action)
                 const newNodes = action.graph.nodes.map(item => ({
                     ...item,
                     position: new Point(item.position.x, item.position.y)

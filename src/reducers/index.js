@@ -15,7 +15,6 @@ import actionMemos from "./actionMemos";
 // import applicationDialogs from "./applicationDialogs";
 import gangs from './gangs'
 import features from './features'
-import googleDrive from "./googleDrive"
 import cachedImages from "./cachedImages";
 
 const arrowsAppReducers = combineReducers({
@@ -33,7 +32,6 @@ const arrowsAppReducers = combineReducers({
     // applicationDialogs,
     gangs,
     features,
-    googleDrive,
     cachedImages
 })
 
