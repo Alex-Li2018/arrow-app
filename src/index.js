@@ -2,6 +2,7 @@ import { getVisualGraph } from './selectors/index'
 import CanvasAdaptor from "./graphics/utils/CanvasAdaptor";
 import StateController from './stateController/index';
 import { initGraph } from './actions/graph'
+import { windowResized } from "./actions/applicationLayout";
 
 function merge(target, source) {
     Object.keys(source).forEach((property) => {
@@ -42,6 +43,8 @@ export default class ArrowApp {
 
         // 触发事件获取全局数据
         this.stateStore.dispatch(initGraph(graph))
+        // 视窗尺寸变化
+        this.stateStore.dispatch(windowResized(this.options.width, this.options.height))
 
         // 适配二倍屏
         this.fitCanvasSize(this.canvas, this.options)

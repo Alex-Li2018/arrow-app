@@ -7344,6 +7344,14 @@
       }
   }
 
+  const windowResized = (width, height) => {
+      return {
+          type: 'WINDOW_RESIZED',
+          width,
+          height
+      }
+  };
+
   function merge(target, source) {
       Object.keys(source).forEach((property) => {
           target[property] = source[property];
@@ -7383,6 +7391,8 @@
 
           // 触发事件获取全局数据
           this.stateStore.dispatch(initGraph(graph));
+          // 视窗尺寸变化
+          this.stateStore.dispatch(windowResized(this.options.width, this.options.height));
 
           // 适配二倍屏
           this.fitCanvasSize(this.canvas, this.options);
