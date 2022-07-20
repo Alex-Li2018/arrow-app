@@ -2,6 +2,7 @@ import {
     Vector
 } from "./Vector";
 
+// canvas view transformation
 export class ViewTransformation {
     constructor(scale = 1, offset = new Vector(0, 0)) {
         this.scale = scale

@@ -6317,6 +6317,7 @@
       }
   };
 
+  // canvas view transformation
   class ViewTransformation {
       constructor(scale = 1, offset = new Vector(0, 0)) {
           this.scale = scale;
@@ -7168,19 +7169,15 @@
       }, [])
   };
 
-  const headerHeight = 40;
-  const footerHeight = 30;
-  const inspectorWidth = 425;
   const canvasPadding = 50;
 
   const computeCanvasSize = (applicationLayout) => {
       const {
           windowSize,
-          inspectorVisible
       } = applicationLayout;
       return {
-          width: windowSize.width - (inspectorVisible ? inspectorWidth : 0),
-          height: windowSize.height - headerHeight - footerHeight - 2
+          width: windowSize.width,
+          height: windowSize.height
       }
   };
 
