@@ -34,6 +34,28 @@ export default class StateController {
         return this.store
     }
 
+    // observe data change
+    observeStore(select) {
+        let currentValue
+        function handleChange() {
+            let previousValue = currentValue
+            currentValue = select(store.getState())
+
+            if (previousValue !== currentValue) {
+                console.log(
+                    'Some deep nested property changed from',
+                    previousValue,
+                    'to',
+                    currentValue
+                )
+            }
+        }
+
+        const unsubscribe = store.subscribe(handleChange)
+        handleChange()
+        return unsubscribe
+    }
+
     // 单例模式
     static getInstance() {
         if (this.instance) {

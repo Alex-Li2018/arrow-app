@@ -4,6 +4,7 @@ import StateController from './stateController/index';
 import { initGraph } from './actions/graph'
 import { windowResized } from "./actions/applicationLayout";
 import MouseHandler from "./interactions/MouseHandler"
+import Gestures from "./graphics/Gestures";
 
 function merge(target, source) {
     Object.keys(source).forEach((property) => {
@@ -95,7 +96,7 @@ export default class ArrowApp {
     // 可视化渲染
     renderVisuals() {
         const state = this.stateStore.getState()
-
+        const gestures = state.gestures
         const visualGraph = getVisualGraph(state)
         const displayOptions = {
             width: this.options.width,
@@ -107,13 +108,13 @@ export default class ArrowApp {
         const ctx = this.canvas.getContext('2d');
         ctx.clearRect(0, 0, displayOptions.width, displayOptions.height);
     
-        // const visualGestures = new Gestures(visualGraph, gestures)
+        const visualGestures = new Gestures(visualGraph, gestures)
         // const visualGuides = new VisualGuides(visualGraph, guides)
     
         layerManager.clear()
 
         // layerManager.register('GUIDES ACTUAL POSITION', visualGuides.drawActualPosition.bind(visualGuides))
-        // layerManager.register('GESTURES', visualGestures.draw.bind(visualGestures))
+        layerManager.register('GESTURES', visualGestures.draw.bind(visualGestures))
         layerManager.register('GRAPH', visualGraph.draw.bind(visualGraph))
     
         layerManager.renderAll(new CanvasAdaptor(ctx), displayOptions)

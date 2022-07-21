@@ -261,6 +261,8 @@
 
   const black = '#000000';
   const white = '#ffffff';
+  const blueGreen = '#58c8e3';
+  const purple = '#9bafda';
 
   const selectionBorder = '#B3D7FF';
   const selectionHandle = '#2284D0';
@@ -1223,6 +1225,21 @@
   const drawTextLine = (ctx, line, position, alignment) => {
       ctx.textAlign = alignment;
       ctx.fillText(line, position.x, position.y);
+  };
+
+  const drawPolygon = (ctx, points, fill, stroke) => {
+      if (points.length < 3) {
+          return
+      }
+      ctx.fillStyle = fill || 'none';
+      ctx.beginPath();
+      ctx.moveTo(points[0].x, points[0].y);
+      points.forEach(point => {
+          ctx.lineTo(point.x, point.y);
+          stroke && ctx.stroke();
+      });
+      ctx.closePath();
+      fill && ctx.fill();
   };
 
   const fitTextToRectangle = (text, maxWidth, measureWidth) => {
@@ -6317,6 +6334,7 @@
       }
   };
 
+  // canvas view transformation
   class ViewTransformation {
       constructor(scale = 1, offset = new Vector(0, 0)) {
           this.scale = scale;
@@ -6406,6 +6424,7 @@
       }
   }
 
+  // 手势
   const gestures = redux.exports.combineReducers({
       dragToCreate: dragging,
       selectionMarquee
@@ -7168,19 +7187,15 @@
       }, [])
   };
 
-  const headerHeight = 40;
-  const footerHeight = 30;
-  const inspectorWidth = 425;
   const canvasPadding = 50;
 
   const computeCanvasSize = (applicationLayout) => {
       const {
           windowSize,
-          inspectorVisible
       } = applicationLayout;
       return {
-          width: windowSize.width - (inspectorVisible ? inspectorWidth : 0),
-          height: windowSize.height - headerHeight - footerHeight - 2
+          width: windowSize.width,
+          height: windowSize.height
       }
   };
 
@@ -7387,6 +7402,7 @@
                   case 'NONE':
                       const item = visualGraph.entityAtPoint(graphPosition);
                       if (item && item.entityType === 'nodeRing') {
+                          // mouse inter node highlight node ring
                           if (dragging.sourceNodeId === null || (dragging.sourceNodeId && item.id !== dragging.sourceNodeId)) {
                               dispatch(activateRing(item.id, item.type));
                           }
@@ -8181,6 +8197,159 @@
       }
   }
 
+  class Gestures {
+      /**
+       * 
+       * @param {*} visualGraph 图数据
+       * @param {*} gestures 
+       {
+          dragToCreate: {
+              newNodePosition: null,
+              secondarySourceNodeIds: [],
+              sourceNodeId: null,
+              targetNodeIds: []
+          },
+          selectionMarquee: null
+       }
+       */
+      constructor(visualGraph, gestures) {
+          this.visualGraph = visualGraph;
+          this.gestures = gestures;
+
+          const style = key => visualGraph.style[key];
+          this.marqueeColor = adaptForBackground(black, style);
+          this.newEntityColor = adaptForBackground(blueGreen, style);
+          this.ringReadyColor = adaptForBackground(purple, style);
+      }
+
+      draw(ctx, displayOptions) {
+          const {
+              visualGraph,
+              gestures
+          } = this;
+          const {
+              dragToCreate,
+              selectionMarquee
+          } = gestures;
+          const viewTransformation = displayOptions.viewTransformation;
+          const transform = (position) => viewTransformation.transform(position);
+          const getBbox = (from, to) => [
+              from, {
+                  x: to.x,
+                  y: from.y
+              },
+              to, {
+                  x: from.x,
+                  y: to.y
+              },
+              from
+          ];
+
+          if (selectionMarquee && visualGraph.graph.nodes.length > 0) {
+              const marqueeScreen = {
+                  from: transform(selectionMarquee.from),
+                  to: transform(selectionMarquee.to)
+              };
+              const bBoxScreen = getBbox(marqueeScreen.from, marqueeScreen.to);
+
+              ctx.save();
+              ctx.strokeStyle = this.marqueeColor;
+              drawPolygon(ctx, bBoxScreen, false, true);
+              ctx.restore();
+          }
+
+          const drawNewNodeAndRelationship = (sourceNodeId, targetNodeId, newNodeNaturalPosition) => {
+              const sourceNode = visualGraph.nodes[sourceNodeId];
+              let newNodeRadius = visualGraph.graph.style.radius;
+              if (sourceNode) {
+                  const sourceNodeRadius = sourceNode.radius;
+                  const outerRadius = sourceNodeRadius + ringMargin;
+                  const sourceNodePosition = sourceNode.position;
+
+                  const targetNode = visualGraph.nodes[targetNodeId];
+                  if (targetNode) {
+                      newNodeRadius = targetNode.radius;
+                  }
+
+                  if (newNodeNaturalPosition) {
+                      const delta = newNodeNaturalPosition.vectorFrom(sourceNodePosition);
+                      let newNodePosition = sourceNodePosition;
+                      if (delta.distance() < outerRadius) {
+                          newNodeRadius = outerRadius;
+                      } else {
+                          if (delta.distance() - sourceNodeRadius < newNodeRadius) {
+                              const ratio = (delta.distance() - sourceNodeRadius) / newNodeRadius;
+                              newNodePosition = sourceNodePosition.translate(delta.scale(ratio));
+                              newNodeRadius = (1 - ratio) * outerRadius + ratio * newNodeRadius;
+                          } else {
+                              newNodePosition = newNodeNaturalPosition;
+                          }
+                      }
+
+                      ctx.fillStyle = this.newEntityColor;
+                      ctx.circle(newNodePosition.x, newNodePosition.y, newNodeRadius, true, false);
+
+                      const dimensions = {
+                          arrowWidth: 4,
+                          hasArrowHead: true,
+                          headWidth: 16,
+                          headHeight: 24,
+                          chinHeight: 2.4,
+                          arrowColor: this.newEntityColor
+                      };
+                      if (targetNode && sourceNode === targetNode) {
+                          const arrow = new BalloonArrow(sourceNodePosition, newNodeRadius, 0, 44, 256, 40, dimensions);
+                          arrow.draw(ctx);
+                      } else {
+                          const arrow = normalStraightArrow(sourceNodePosition, newNodePosition, sourceNodeRadius, newNodeRadius, dimensions);
+                          arrow.draw(ctx);
+                      }
+                  } else {
+                      ctx.fillStyle = this.ringReadyColor;
+                      ctx.circle(sourceNodePosition.x, sourceNodePosition.y, outerRadius, true, false);
+                  }
+              }
+          };
+
+          if (dragToCreate.sourceNodeId) {
+              ctx.save();
+              ctx.translate(viewTransformation.offset.dx, viewTransformation.offset.dy);
+              ctx.scale(viewTransformation.scale, viewTransformation.scale);
+
+              drawNewNodeAndRelationship(
+                  dragToCreate.sourceNodeId,
+                  dragToCreate.targetNodeIds[0],
+                  dragToCreate.newNodePosition
+              );
+
+              dragToCreate.secondarySourceNodeIds.forEach((secondarySourceNodeId, i) => {
+                  const primarySourceNode = visualGraph.nodes[dragToCreate.sourceNodeId];
+                  const secondarySourceNode = visualGraph.nodes[secondarySourceNodeId];
+                  const displacement = secondarySourceNode.position.vectorFrom(primarySourceNode.position);
+
+                  const secondaryTargetNodeId = dragToCreate.targetNodeIds[i + 1];
+                  if (secondaryTargetNodeId) {
+                      const secondaryTargetNode = visualGraph.nodes[secondaryTargetNodeId];
+
+                      drawNewNodeAndRelationship(
+                          secondarySourceNodeId,
+                          dragToCreate.targetNodeIds[i + 1],
+                          secondaryTargetNode.position
+                      );
+                  } else {
+                      drawNewNodeAndRelationship(
+                          secondarySourceNodeId,
+                          null,
+                          dragToCreate.newNodePosition.translate(displacement)
+                      );
+                  }
+              });
+
+              ctx.restore();
+          }
+      }
+  }
+
   function merge(target, source) {
       Object.keys(source).forEach((property) => {
           target[property] = source[property];
@@ -8271,7 +8440,7 @@
       // 可视化渲染
       renderVisuals() {
           const state = this.stateStore.getState();
-
+          const gestures = state.gestures;
           const visualGraph = getVisualGraph(state);
           const displayOptions = {
               width: this.options.width,
@@ -8283,13 +8452,13 @@
           const ctx = this.canvas.getContext('2d');
           ctx.clearRect(0, 0, displayOptions.width, displayOptions.height);
       
-          // const visualGestures = new Gestures(visualGraph, gestures)
+          const visualGestures = new Gestures(visualGraph, gestures);
           // const visualGuides = new VisualGuides(visualGraph, guides)
       
           layerManager.clear();
 
           // layerManager.register('GUIDES ACTUAL POSITION', visualGuides.drawActualPosition.bind(visualGuides))
-          // layerManager.register('GESTURES', visualGestures.draw.bind(visualGestures))
+          layerManager.register('GESTURES', visualGestures.draw.bind(visualGestures));
           layerManager.register('GRAPH', visualGraph.draw.bind(visualGraph));
       
           layerManager.renderAll(new CanvasAdaptor(ctx), displayOptions);

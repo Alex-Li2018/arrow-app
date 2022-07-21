@@ -236,6 +236,7 @@ export const mouseMove = (canvasPosition) => {
                 case 'NONE':
                     const item = visualGraph.entityAtPoint(graphPosition)
                     if (item && item.entityType === 'nodeRing') {
+                        // mouse inter node highlight node ring
                         if (dragging.sourceNodeId === null || (dragging.sourceNodeId && item.id !== dragging.sourceNodeId)) {
                             dispatch(activateRing(item.id, item.type))
                         }
