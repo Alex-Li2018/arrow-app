@@ -2683,7 +2683,7 @@
           ctx.scale(viewTransformation.scale);
           this.relationshipBundles.forEach(bundle => bundle.draw(ctx));
           Object.values(this.nodes).forEach(visualNode => {
-              visualNode.draw(ctx);
+          visualNode.draw(ctx);
           });
           ctx.restore();
       }
@@ -4729,7 +4729,7 @@
       }
   );
 
-  createSelector(
+  const getBackgroundImage = createSelector(
       [getGraph, getCachedImages],
       (graph, cachedImages) => {
           return new BackgroundImage(graph.style, cachedImages)
@@ -8110,6 +8110,48 @@
           return this.store
       }
 
+      // observe data change
+      subscribeEvent(callback) {
+          let currentValue;
+          const self = this;
+          function handleChange() {
+              let previousValue = currentValue;
+              currentValue = self.oberserData(self.store.getState());
+              console.log(previousValue, currentValue);
+              callback && callback(currentValue);
+              // if (previousValue !== currentValue) {
+              //     console.log(
+              //         'Some deep nested property changed from',
+              //         previousValue,
+              //         'to',
+              //         currentValue
+              //     )
+              // }
+          }
+
+          const unsubscribe = self.store.subscribe(handleChange);
+          handleChange();
+          return unsubscribe
+      }
+
+      oberserData(state) {
+          /* oberser gestures graph viewTransformation
+              if gestures graph viewTransformation data changed 
+              the view will rerender
+          */
+          return {
+              visualGraph: getVisualGraph(state),
+              backgroundImage: getBackgroundImage(state),
+              selection: state.selection,
+              gestures: state.gestures,
+              guides: state.guides,
+              handles: getTransformationHandles(state),
+              canvasSize: computeCanvasSize(state.applicationLayout),
+              viewTransformation: state.viewTransformation,
+              storage: state.storage
+          }
+      }
+
       // 单例模式
       static getInstance() {
           if (this.instance) {
@@ -8385,7 +8427,8 @@
           merge(this.options, options);
 
           // redux store
-          this.stateStore = StateController.getInstance().store;
+          this.stateController = StateController.getInstance();
+          this.stateStore = this.stateController.store;
 
           // dispatch initGraph event
           this.stateStore.dispatch(initGraph(graph));
@@ -8398,9 +8441,9 @@
           // event listener
           this.mouseHandler = new MouseHandler(this.canvas);
           this.mouseHandler.setDispatch(this.stateStore.dispatch);
-
-          // render
-          this.renderVisuals();
+          
+          // listen render
+          this.stateController.subscribeEvent(this.renderVisuals());
       }
 
       fitCanvasSize(canvas, {
@@ -8438,19 +8481,21 @@
       }
 
       // 可视化渲染
-      renderVisuals() {
-          const state = this.stateStore.getState();
-          const gestures = state.gestures;
-          const visualGraph = getVisualGraph(state);
-          const displayOptions = {
-              width: this.options.width,
-              height: this.options.height,
-              viewTransformation: state.viewTransformation
-          };
-
+      renderVisuals(state) {
+          const { 
+              visualGraph, 
+              backgroundImage, 
+              selection, 
+              gestures, 
+              guides, 
+              handles, 
+              toolboxes, 
+              viewTransformation, 
+              canvasSize 
+          } = state;
 
           const ctx = this.canvas.getContext('2d');
-          ctx.clearRect(0, 0, displayOptions.width, displayOptions.height);
+          ctx.clearRect(0, 0, canvasSize.width, canvasSize.height);
       
           const visualGestures = new Gestures(visualGraph, gestures);
           // const visualGuides = new VisualGuides(visualGraph, guides)
@@ -8461,7 +8506,10 @@
           layerManager.register('GESTURES', visualGestures.draw.bind(visualGestures));
           layerManager.register('GRAPH', visualGraph.draw.bind(visualGraph));
       
-          layerManager.renderAll(new CanvasAdaptor(ctx), displayOptions);
+          layerManager.renderAll(new CanvasAdaptor(ctx), {
+              canvasSize,
+              viewTransformation
+          });
       }
   }
 

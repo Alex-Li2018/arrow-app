@@ -105,7 +105,7 @@ export default class VisualGraph {
         ctx.scale(viewTransformation.scale)
         this.relationshipBundles.forEach(bundle => bundle.draw(ctx))
         Object.values(this.nodes).forEach(visualNode => {
-            visualNode.draw(ctx)
+        visualNode.draw(ctx)
         })
         ctx.restore()
     }

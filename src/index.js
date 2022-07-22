@@ -41,7 +41,8 @@ export default class ArrowApp {
         merge(this.options, options)
 
         // redux store
-        this.stateStore = StateController.getInstance().store
+        this.stateController = StateController.getInstance()
+        this.stateStore = this.stateController.store
 
         // dispatch initGraph event
         this.stateStore.dispatch(initGraph(graph))
@@ -54,9 +55,9 @@ export default class ArrowApp {
         // event listener
         this.mouseHandler = new MouseHandler(this.canvas)
         this.mouseHandler.setDispatch(this.stateStore.dispatch)
-
-        // render
-        this.renderVisuals()
+        
+        // listen render
+        this.stateController.subscribeEvent(this.renderVisuals.bind(this))
     }
 
     fitCanvasSize(canvas, {
@@ -94,19 +95,21 @@ export default class ArrowApp {
     }
 
     // 可视化渲染
-    renderVisuals() {
-        const state = this.stateStore.getState()
-        const gestures = state.gestures
-        const visualGraph = getVisualGraph(state)
-        const displayOptions = {
-            width: this.options.width,
-            height: this.options.height,
-            viewTransformation: state.viewTransformation
-        }
-
+    renderVisuals(state) {
+        const { 
+            visualGraph, 
+            backgroundImage, 
+            selection, 
+            gestures, 
+            guides, 
+            handles, 
+            toolboxes, 
+            viewTransformation, 
+            canvasSize 
+        } = state
 
         const ctx = this.canvas.getContext('2d');
-        ctx.clearRect(0, 0, displayOptions.width, displayOptions.height);
+        ctx.clearRect(0, 0, canvasSize.width, canvasSize.height);
     
         const visualGestures = new Gestures(visualGraph, gestures)
         // const visualGuides = new VisualGuides(visualGraph, guides)
@@ -117,6 +120,9 @@ export default class ArrowApp {
         layerManager.register('GESTURES', visualGestures.draw.bind(visualGestures))
         layerManager.register('GRAPH', visualGraph.draw.bind(visualGraph))
     
-        layerManager.renderAll(new CanvasAdaptor(ctx), displayOptions)
+        layerManager.renderAll(new CanvasAdaptor(ctx), {
+            canvasSize,
+            viewTransformation
+        })
     }
 }
