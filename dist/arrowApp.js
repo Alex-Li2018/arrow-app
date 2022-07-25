@@ -8116,17 +8116,9 @@
           const self = this;
           function handleChange() {
               let previousValue = currentValue;
-              currentValue = self.oberserData(self.store.getState());
+              currentValue = self.observerData(self.store.getState());
               console.log(previousValue, currentValue);
               callback && callback(currentValue);
-              // if (previousValue !== currentValue) {
-              //     console.log(
-              //         'Some deep nested property changed from',
-              //         previousValue,
-              //         'to',
-              //         currentValue
-              //     )
-              // }
           }
 
           const unsubscribe = self.store.subscribe(handleChange);
@@ -8134,7 +8126,7 @@
           return unsubscribe
       }
 
-      oberserData(state) {
+      observerData(state) {
           /* oberser gestures graph viewTransformation
               if gestures graph viewTransformation data changed 
               the view will rerender
@@ -8443,7 +8435,7 @@
           this.mouseHandler.setDispatch(this.stateStore.dispatch);
           
           // listen render
-          this.stateController.subscribeEvent(this.renderVisuals());
+          this.stateController.subscribeEvent(this.renderVisuals.bind(this));
       }
 
       fitCanvasSize(canvas, {

@@ -65,7 +65,7 @@ export default class VisualNode {
         this.radius = this.internalRadius + style('border-width')
         this.outsideComponentRadius = this.radius + style('node-margin')
         this.fitRadius = this.internalRadius - style('node-padding')
-        // 节点的背景色
+        // node background
         this.background = new NodeBackground(node.position, this.internalRadius, editing, style, imageCache)
         // todo ？？？
         const neighbourObstacles = neighbourPositions(node, graph).map(position => {
@@ -85,8 +85,11 @@ export default class VisualNode {
         const iconImage = style('node-icon-image')
         const iconPosition = style('icon-position')
         const hasIcon = !!iconImage
+        // 标题
         const hasCaption = !!node.caption
+        // 标记
         const hasLabels = node.labels.length > 0
+        // 属性
         const hasProperties = Object.keys(node.properties).length > 0
 
         const outsidePosition = style('outside-position')

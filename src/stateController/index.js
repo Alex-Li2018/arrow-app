@@ -46,17 +46,9 @@ export default class StateController {
         const self = this
         function handleChange() {
             let previousValue = currentValue
-            currentValue = self.oberserData(self.store.getState())
+            currentValue = self.observerData(self.store.getState())
             console.log(previousValue, currentValue)
             callback && callback(currentValue)
-            // if (previousValue !== currentValue) {
-            //     console.log(
-            //         'Some deep nested property changed from',
-            //         previousValue,
-            //         'to',
-            //         currentValue
-            //     )
-            // }
         }
 
         const unsubscribe = self.store.subscribe(handleChange)
@@ -64,7 +56,7 @@ export default class StateController {
         return unsubscribe
     }
 
-    oberserData(state) {
+    observerData(state) {
         /* oberser gestures graph viewTransformation
             if gestures graph viewTransformation data changed 
             the view will rerender
