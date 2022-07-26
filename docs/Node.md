@@ -110,3 +110,25 @@
 | draw | 画节点 |  |
 | boundingBox | 上下左右的坐标点 |  |
 | distanceFrom |  |  |
+
+
+## NodeCaptionInsideNode类
+
+### property
+
+| 属性 | 描述 | 默认值|
+| --- | --- | --- |
+| editing | 是否正在编辑中 |  |
+| orientation | 定位 | ``` {horizontal: 'center', vertical: 'center'} ``` |
+| width | 宽 ||
+| height | 高 ||
+| icon | Icon实例 ||
+
+
+### method
+
+| 方法 | 描述 | 默认值|
+| --- | --- | --- |
+| draw | 画节点 |  |
+| boundingBox | 上下左右的坐标点 |  |
+| distanceFrom |  |  |

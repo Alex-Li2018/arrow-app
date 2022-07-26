@@ -46,8 +46,7 @@ export default class StateController {
         const self = this
         function handleChange() {
             let previousValue = currentValue
-            currentValue = self.observerData(self.store.getState())
-            console.log(previousValue, currentValue)
+            currentValue = self.observerData(previousValue, self.store.getState())
             callback && callback(currentValue)
         }
 
@@ -56,12 +55,12 @@ export default class StateController {
         return unsubscribe
     }
 
-    observerData(state) {
+    observerData(preState, state) {
         /* oberser gestures graph viewTransformation
             if gestures graph viewTransformation data changed 
             the view will rerender
         */
-        return {
+        const currentValue =  {
             visualGraph: getVisualGraph(state),
             backgroundImage: getBackgroundImage(state),
             selection: state.selection,
@@ -71,6 +70,22 @@ export default class StateController {
             canvasSize: computeCanvasSize(state.applicationLayout),
             viewTransformation: state.viewTransformation,
             storage: state.storage
+        }
+
+        if (!preState) return currentValue
+        
+        // for(let key in currentValue) {
+        //     currentValue[]
+        // }
+        
+    }
+
+    dispatchSelection(preValue, value) {
+        const preSelection = preValue.selection
+        const selection = value.selection
+
+        for(let key in preSelection) {
+            selection[key] = selection[key]
         }
     }
 
