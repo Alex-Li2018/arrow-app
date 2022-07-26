@@ -1,6 +1,6 @@
 import {
     ActionTypes
-} from "../library/redux-undo.js";
+} from "redux-undo";
 
 const allEntitiesSelected = (oldEntities, newEntities) => {
     return newEntities.every(newEntity =>

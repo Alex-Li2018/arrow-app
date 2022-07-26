@@ -4756,813 +4756,709 @@ const getPositionsOfSelectedNodes = createSelector(
     }
 );
 
-var commonjsGlobal = typeof globalThis !== 'undefined' ? globalThis : typeof window !== 'undefined' ? window : typeof global !== 'undefined' ? global : typeof self !== 'undefined' ? self : {};
+function _defineProperty(obj, key, value) {
+  if (key in obj) {
+    Object.defineProperty(obj, key, {
+      value: value,
+      enumerable: true,
+      configurable: true,
+      writable: true
+    });
+  } else {
+    obj[key] = value;
+  }
 
-function getDefaultExportFromCjs (x) {
-	return x && x.__esModule && Object.prototype.hasOwnProperty.call(x, 'default') ? x['default'] : x;
+  return obj;
 }
 
-var redux = {exports: {}};
-
-(function (module, exports) {
-	(function (global, factory) {
-	factory(exports) ;
-	}(commonjsGlobal, (function (exports) {
-	// Inlined version of the `symbol-observable` polyfill
-	var $$observable = (function () {
-	  return typeof Symbol === 'function' && Symbol.observable || '@@observable';
-	})();
-
-	/**
-	 * These are private action types reserved by Redux.
-	 * For any unknown actions, you must return the current state.
-	 * If the current state is undefined, you must return the initial state.
-	 * Do not reference these action types directly in your code.
-	 */
-	var randomString = function randomString() {
-	  return Math.random().toString(36).substring(7).split('').join('.');
-	};
-
-	var ActionTypes = {
-	  INIT: "@@redux/INIT" + randomString(),
-	  REPLACE: "@@redux/REPLACE" + randomString(),
-	  PROBE_UNKNOWN_ACTION: function PROBE_UNKNOWN_ACTION() {
-	    return "@@redux/PROBE_UNKNOWN_ACTION" + randomString();
-	  }
-	};
-
-	/**
-	 * @param {any} obj The object to inspect.
-	 * @returns {boolean} True if the argument appears to be a plain object.
-	 */
-	function isPlainObject(obj) {
-	  if (typeof obj !== 'object' || obj === null) return false;
-	  var proto = obj;
-
-	  while (Object.getPrototypeOf(proto) !== null) {
-	    proto = Object.getPrototypeOf(proto);
-	  }
-
-	  return Object.getPrototypeOf(obj) === proto;
-	}
-
-	// Inlined / shortened version of `kindOf` from https://github.com/jonschlinkert/kind-of
-	function miniKindOf(val) {
-	  if (val === void 0) return 'undefined';
-	  if (val === null) return 'null';
-	  var type = typeof val;
-
-	  switch (type) {
-	    case 'boolean':
-	    case 'string':
-	    case 'number':
-	    case 'symbol':
-	    case 'function':
-	      {
-	        return type;
-	      }
-	  }
-
-	  if (Array.isArray(val)) return 'array';
-	  if (isDate(val)) return 'date';
-	  if (isError(val)) return 'error';
-	  var constructorName = ctorName(val);
-
-	  switch (constructorName) {
-	    case 'Symbol':
-	    case 'Promise':
-	    case 'WeakMap':
-	    case 'WeakSet':
-	    case 'Map':
-	    case 'Set':
-	      return constructorName;
-	  } // other
-
-
-	  return type.slice(8, -1).toLowerCase().replace(/\s/g, '');
-	}
-
-	function ctorName(val) {
-	  return typeof val.constructor === 'function' ? val.constructor.name : null;
-	}
-
-	function isError(val) {
-	  return val instanceof Error || typeof val.message === 'string' && val.constructor && typeof val.constructor.stackTraceLimit === 'number';
-	}
-
-	function isDate(val) {
-	  if (val instanceof Date) return true;
-	  return typeof val.toDateString === 'function' && typeof val.getDate === 'function' && typeof val.setDate === 'function';
-	}
-
-	function kindOf(val) {
-	  var typeOfVal = typeof val;
-
-	  {
-	    typeOfVal = miniKindOf(val);
-	  }
-
-	  return typeOfVal;
-	}
-
-	/**
-	 * @deprecated
-	 *
-	 * **We recommend using the `configureStore` method
-	 * of the `@reduxjs/toolkit` package**, which replaces `createStore`.
-	 *
-	 * Redux Toolkit is our recommended approach for writing Redux logic today,
-	 * including store setup, reducers, data fetching, and more.
-	 *
-	 * **For more details, please read this Redux docs page:**
-	 * **https://redux.js.org/introduction/why-rtk-is-redux-today**
-	 *
-	 * `configureStore` from Redux Toolkit is an improved version of `createStore` that
-	 * simplifies setup and helps avoid common bugs.
-	 *
-	 * You should not be using the `redux` core package by itself today, except for learning purposes.
-	 * The `createStore` method from the core `redux` package will not be removed, but we encourage
-	 * all users to migrate to using Redux Toolkit for all Redux code.
-	 *
-	 * If you want to use `createStore` without this visual deprecation warning, use
-	 * the `legacy_createStore` import instead:
-	 *
-	 * `import { legacy_createStore as createStore} from 'redux'`
-	 *
-	 */
-
-	function createStore(reducer, preloadedState, enhancer) {
-	  var _ref2;
-
-	  if (typeof preloadedState === 'function' && typeof enhancer === 'function' || typeof enhancer === 'function' && typeof arguments[3] === 'function') {
-	    throw new Error('It looks like you are passing several store enhancers to ' + 'createStore(). This is not supported. Instead, compose them ' + 'together to a single function. See https://redux.js.org/tutorials/fundamentals/part-4-store#creating-a-store-with-enhancers for an example.');
-	  }
-
-	  if (typeof preloadedState === 'function' && typeof enhancer === 'undefined') {
-	    enhancer = preloadedState;
-	    preloadedState = undefined;
-	  }
-
-	  if (typeof enhancer !== 'undefined') {
-	    if (typeof enhancer !== 'function') {
-	      throw new Error("Expected the enhancer to be a function. Instead, received: '" + kindOf(enhancer) + "'");
-	    }
-
-	    return enhancer(createStore)(reducer, preloadedState);
-	  }
-
-	  if (typeof reducer !== 'function') {
-	    throw new Error("Expected the root reducer to be a function. Instead, received: '" + kindOf(reducer) + "'");
-	  }
-
-	  var currentReducer = reducer;
-	  var currentState = preloadedState;
-	  var currentListeners = [];
-	  var nextListeners = currentListeners;
-	  var isDispatching = false;
-	  /**
-	   * This makes a shallow copy of currentListeners so we can use
-	   * nextListeners as a temporary list while dispatching.
-	   *
-	   * This prevents any bugs around consumers calling
-	   * subscribe/unsubscribe in the middle of a dispatch.
-	   */
-
-	  function ensureCanMutateNextListeners() {
-	    if (nextListeners === currentListeners) {
-	      nextListeners = currentListeners.slice();
-	    }
-	  }
-	  /**
-	   * Reads the state tree managed by the store.
-	   *
-	   * @returns {any} The current state tree of your application.
-	   */
-
-
-	  function getState() {
-	    if (isDispatching) {
-	      throw new Error('You may not call store.getState() while the reducer is executing. ' + 'The reducer has already received the state as an argument. ' + 'Pass it down from the top reducer instead of reading it from the store.');
-	    }
-
-	    return currentState;
-	  }
-	  /**
-	   * Adds a change listener. It will be called any time an action is dispatched,
-	   * and some part of the state tree may potentially have changed. You may then
-	   * call `getState()` to read the current state tree inside the callback.
-	   *
-	   * You may call `dispatch()` from a change listener, with the following
-	   * caveats:
-	   *
-	   * 1. The subscriptions are snapshotted just before every `dispatch()` call.
-	   * If you subscribe or unsubscribe while the listeners are being invoked, this
-	   * will not have any effect on the `dispatch()` that is currently in progress.
-	   * However, the next `dispatch()` call, whether nested or not, will use a more
-	   * recent snapshot of the subscription list.
-	   *
-	   * 2. The listener should not expect to see all state changes, as the state
-	   * might have been updated multiple times during a nested `dispatch()` before
-	   * the listener is called. It is, however, guaranteed that all subscribers
-	   * registered before the `dispatch()` started will be called with the latest
-	   * state by the time it exits.
-	   *
-	   * @param {Function} listener A callback to be invoked on every dispatch.
-	   * @returns {Function} A function to remove this change listener.
-	   */
-
-
-	  function subscribe(listener) {
-	    if (typeof listener !== 'function') {
-	      throw new Error("Expected the listener to be a function. Instead, received: '" + kindOf(listener) + "'");
-	    }
-
-	    if (isDispatching) {
-	      throw new Error('You may not call store.subscribe() while the reducer is executing. ' + 'If you would like to be notified after the store has been updated, subscribe from a ' + 'component and invoke store.getState() in the callback to access the latest state. ' + 'See https://redux.js.org/api/store#subscribelistener for more details.');
-	    }
-
-	    var isSubscribed = true;
-	    ensureCanMutateNextListeners();
-	    nextListeners.push(listener);
-	    return function unsubscribe() {
-	      if (!isSubscribed) {
-	        return;
-	      }
-
-	      if (isDispatching) {
-	        throw new Error('You may not unsubscribe from a store listener while the reducer is executing. ' + 'See https://redux.js.org/api/store#subscribelistener for more details.');
-	      }
-
-	      isSubscribed = false;
-	      ensureCanMutateNextListeners();
-	      var index = nextListeners.indexOf(listener);
-	      nextListeners.splice(index, 1);
-	      currentListeners = null;
-	    };
-	  }
-	  /**
-	   * Dispatches an action. It is the only way to trigger a state change.
-	   *
-	   * The `reducer` function, used to create the store, will be called with the
-	   * current state tree and the given `action`. Its return value will
-	   * be considered the **next** state of the tree, and the change listeners
-	   * will be notified.
-	   *
-	   * The base implementation only supports plain object actions. If you want to
-	   * dispatch a Promise, an Observable, a thunk, or something else, you need to
-	   * wrap your store creating function into the corresponding middleware. For
-	   * example, see the documentation for the `redux-thunk` package. Even the
-	   * middleware will eventually dispatch plain object actions using this method.
-	   *
-	   * @param {Object} action A plain object representing “what changed”. It is
-	   * a good idea to keep actions serializable so you can record and replay user
-	   * sessions, or use the time travelling `redux-devtools`. An action must have
-	   * a `type` property which may not be `undefined`. It is a good idea to use
-	   * string constants for action types.
-	   *
-	   * @returns {Object} For convenience, the same action object you dispatched.
-	   *
-	   * Note that, if you use a custom middleware, it may wrap `dispatch()` to
-	   * return something else (for example, a Promise you can await).
-	   */
-
-
-	  function dispatch(action) {
-	    if (!isPlainObject(action)) {
-	      throw new Error("Actions must be plain objects. Instead, the actual type was: '" + kindOf(action) + "'. You may need to add middleware to your store setup to handle dispatching other values, such as 'redux-thunk' to handle dispatching functions. See https://redux.js.org/tutorials/fundamentals/part-4-store#middleware and https://redux.js.org/tutorials/fundamentals/part-6-async-logic#using-the-redux-thunk-middleware for examples.");
-	    }
-
-	    if (typeof action.type === 'undefined') {
-	      throw new Error('Actions may not have an undefined "type" property. You may have misspelled an action type string constant.');
-	    }
-
-	    if (isDispatching) {
-	      throw new Error('Reducers may not dispatch actions.');
-	    }
-
-	    try {
-	      isDispatching = true;
-	      currentState = currentReducer(currentState, action);
-	    } finally {
-	      isDispatching = false;
-	    }
-
-	    var listeners = currentListeners = nextListeners;
-
-	    for (var i = 0; i < listeners.length; i++) {
-	      var listener = listeners[i];
-	      listener();
-	    }
-
-	    return action;
-	  }
-	  /**
-	   * Replaces the reducer currently used by the store to calculate the state.
-	   *
-	   * You might need this if your app implements code splitting and you want to
-	   * load some of the reducers dynamically. You might also need this if you
-	   * implement a hot reloading mechanism for Redux.
-	   *
-	   * @param {Function} nextReducer The reducer for the store to use instead.
-	   * @returns {void}
-	   */
-
-
-	  function replaceReducer(nextReducer) {
-	    if (typeof nextReducer !== 'function') {
-	      throw new Error("Expected the nextReducer to be a function. Instead, received: '" + kindOf(nextReducer));
-	    }
-
-	    currentReducer = nextReducer; // This action has a similiar effect to ActionTypes.INIT.
-	    // Any reducers that existed in both the new and old rootReducer
-	    // will receive the previous state. This effectively populates
-	    // the new state tree with any relevant data from the old one.
-
-	    dispatch({
-	      type: ActionTypes.REPLACE
-	    });
-	  }
-	  /**
-	   * Interoperability point for observable/reactive libraries.
-	   * @returns {observable} A minimal observable of state changes.
-	   * For more information, see the observable proposal:
-	   * https://github.com/tc39/proposal-observable
-	   */
-
-
-	  function observable() {
-	    var _ref;
-
-	    var outerSubscribe = subscribe;
-	    return _ref = {
-	      /**
-	       * The minimal observable subscription method.
-	       * @param {Object} observer Any object that can be used as an observer.
-	       * The observer object should have a `next` method.
-	       * @returns {subscription} An object with an `unsubscribe` method that can
-	       * be used to unsubscribe the observable from the store, and prevent further
-	       * emission of values from the observable.
-	       */
-	      subscribe: function subscribe(observer) {
-	        if (typeof observer !== 'object' || observer === null) {
-	          throw new Error("Expected the observer to be an object. Instead, received: '" + kindOf(observer) + "'");
-	        }
-
-	        function observeState() {
-	          if (observer.next) {
-	            observer.next(getState());
-	          }
-	        }
-
-	        observeState();
-	        var unsubscribe = outerSubscribe(observeState);
-	        return {
-	          unsubscribe: unsubscribe
-	        };
-	      }
-	    }, _ref[$$observable] = function () {
-	      return this;
-	    }, _ref;
-	  } // When a store is created, an "INIT" action is dispatched so that every
-	  // reducer returns their initial state. This effectively populates
-	  // the initial state tree.
-
-
-	  dispatch({
-	    type: ActionTypes.INIT
-	  });
-	  return _ref2 = {
-	    dispatch: dispatch,
-	    subscribe: subscribe,
-	    getState: getState,
-	    replaceReducer: replaceReducer
-	  }, _ref2[$$observable] = observable, _ref2;
-	}
-	/**
-	 * Creates a Redux store that holds the state tree.
-	 *
-	 * **We recommend using `configureStore` from the
-	 * `@reduxjs/toolkit` package**, which replaces `createStore`:
-	 * **https://redux.js.org/introduction/why-rtk-is-redux-today**
-	 *
-	 * The only way to change the data in the store is to call `dispatch()` on it.
-	 *
-	 * There should only be a single store in your app. To specify how different
-	 * parts of the state tree respond to actions, you may combine several reducers
-	 * into a single reducer function by using `combineReducers`.
-	 *
-	 * @param {Function} reducer A function that returns the next state tree, given
-	 * the current state tree and the action to handle.
-	 *
-	 * @param {any} [preloadedState] The initial state. You may optionally specify it
-	 * to hydrate the state from the server in universal apps, or to restore a
-	 * previously serialized user session.
-	 * If you use `combineReducers` to produce the root reducer function, this must be
-	 * an object with the same shape as `combineReducers` keys.
-	 *
-	 * @param {Function} [enhancer] The store enhancer. You may optionally specify it
-	 * to enhance the store with third-party capabilities such as middleware,
-	 * time travel, persistence, etc. The only store enhancer that ships with Redux
-	 * is `applyMiddleware()`.
-	 *
-	 * @returns {Store} A Redux store that lets you read the state, dispatch actions
-	 * and subscribe to changes.
-	 */
-
-	var legacy_createStore = createStore;
-
-	/**
-	 * Prints a warning in the console if it exists.
-	 *
-	 * @param {String} message The warning message.
-	 * @returns {void}
-	 */
-	function warning(message) {
-	  /* eslint-disable no-console */
-	  if (typeof console !== 'undefined' && typeof console.error === 'function') {
-	    console.error(message);
-	  }
-	  /* eslint-enable no-console */
-
-
-	  try {
-	    // This error was thrown as a convenience so that if you enable
-	    // "break on all exceptions" in your console,
-	    // it would pause the execution at this line.
-	    throw new Error(message);
-	  } catch (e) {} // eslint-disable-line no-empty
-
-	}
-
-	function getUnexpectedStateShapeWarningMessage(inputState, reducers, action, unexpectedKeyCache) {
-	  var reducerKeys = Object.keys(reducers);
-	  var argumentName = action && action.type === ActionTypes.INIT ? 'preloadedState argument passed to createStore' : 'previous state received by the reducer';
-
-	  if (reducerKeys.length === 0) {
-	    return 'Store does not have a valid reducer. Make sure the argument passed ' + 'to combineReducers is an object whose values are reducers.';
-	  }
-
-	  if (!isPlainObject(inputState)) {
-	    return "The " + argumentName + " has unexpected type of \"" + kindOf(inputState) + "\". Expected argument to be an object with the following " + ("keys: \"" + reducerKeys.join('", "') + "\"");
-	  }
-
-	  var unexpectedKeys = Object.keys(inputState).filter(function (key) {
-	    return !reducers.hasOwnProperty(key) && !unexpectedKeyCache[key];
-	  });
-	  unexpectedKeys.forEach(function (key) {
-	    unexpectedKeyCache[key] = true;
-	  });
-	  if (action && action.type === ActionTypes.REPLACE) return;
-
-	  if (unexpectedKeys.length > 0) {
-	    return "Unexpected " + (unexpectedKeys.length > 1 ? 'keys' : 'key') + " " + ("\"" + unexpectedKeys.join('", "') + "\" found in " + argumentName + ". ") + "Expected to find one of the known reducer keys instead: " + ("\"" + reducerKeys.join('", "') + "\". Unexpected keys will be ignored.");
-	  }
-	}
-
-	function assertReducerShape(reducers) {
-	  Object.keys(reducers).forEach(function (key) {
-	    var reducer = reducers[key];
-	    var initialState = reducer(undefined, {
-	      type: ActionTypes.INIT
-	    });
-
-	    if (typeof initialState === 'undefined') {
-	      throw new Error("The slice reducer for key \"" + key + "\" returned undefined during initialization. " + "If the state passed to the reducer is undefined, you must " + "explicitly return the initial state. The initial state may " + "not be undefined. If you don't want to set a value for this reducer, " + "you can use null instead of undefined.");
-	    }
-
-	    if (typeof reducer(undefined, {
-	      type: ActionTypes.PROBE_UNKNOWN_ACTION()
-	    }) === 'undefined') {
-	      throw new Error("The slice reducer for key \"" + key + "\" returned undefined when probed with a random type. " + ("Don't try to handle '" + ActionTypes.INIT + "' or other actions in \"redux/*\" ") + "namespace. They are considered private. Instead, you must return the " + "current state for any unknown actions, unless it is undefined, " + "in which case you must return the initial state, regardless of the " + "action type. The initial state may not be undefined, but can be null.");
-	    }
-	  });
-	}
-	/**
-	 * Turns an object whose values are different reducer functions, into a single
-	 * reducer function. It will call every child reducer, and gather their results
-	 * into a single state object, whose keys correspond to the keys of the passed
-	 * reducer functions.
-	 *
-	 * @param {Object} reducers An object whose values correspond to different
-	 * reducer functions that need to be combined into one. One handy way to obtain
-	 * it is to use ES6 `import * as reducers` syntax. The reducers may never return
-	 * undefined for any action. Instead, they should return their initial state
-	 * if the state passed to them was undefined, and the current state for any
-	 * unrecognized action.
-	 *
-	 * @returns {Function} A reducer function that invokes every reducer inside the
-	 * passed object, and builds a state object with the same shape.
-	 */
-
-
-	function combineReducers(reducers) {
-	  var reducerKeys = Object.keys(reducers);
-	  var finalReducers = {};
-
-	  for (var i = 0; i < reducerKeys.length; i++) {
-	    var key = reducerKeys[i];
-
-	    {
-	      if (typeof reducers[key] === 'undefined') {
-	        warning("No reducer provided for key \"" + key + "\"");
-	      }
-	    }
-
-	    if (typeof reducers[key] === 'function') {
-	      finalReducers[key] = reducers[key];
-	    }
-	  }
-
-	  var finalReducerKeys = Object.keys(finalReducers); // This is used to make sure we don't warn about the same
-	  // keys multiple times.
-
-	  var unexpectedKeyCache;
-
-	  {
-	    unexpectedKeyCache = {};
-	  }
-
-	  var shapeAssertionError;
-
-	  try {
-	    assertReducerShape(finalReducers);
-	  } catch (e) {
-	    shapeAssertionError = e;
-	  }
-
-	  return function combination(state, action) {
-	    if (state === void 0) {
-	      state = {};
-	    }
-
-	    if (shapeAssertionError) {
-	      throw shapeAssertionError;
-	    }
-
-	    {
-	      var warningMessage = getUnexpectedStateShapeWarningMessage(state, finalReducers, action, unexpectedKeyCache);
-
-	      if (warningMessage) {
-	        warning(warningMessage);
-	      }
-	    }
-
-	    var hasChanged = false;
-	    var nextState = {};
-
-	    for (var _i = 0; _i < finalReducerKeys.length; _i++) {
-	      var _key = finalReducerKeys[_i];
-	      var reducer = finalReducers[_key];
-	      var previousStateForKey = state[_key];
-	      var nextStateForKey = reducer(previousStateForKey, action);
-
-	      if (typeof nextStateForKey === 'undefined') {
-	        var actionType = action && action.type;
-	        throw new Error("When called with an action of type " + (actionType ? "\"" + String(actionType) + "\"" : '(unknown type)') + ", the slice reducer for key \"" + _key + "\" returned undefined. " + "To ignore an action, you must explicitly return the previous state. " + "If you want this reducer to hold no value, you can return null instead of undefined.");
-	      }
-
-	      nextState[_key] = nextStateForKey;
-	      hasChanged = hasChanged || nextStateForKey !== previousStateForKey;
-	    }
-
-	    hasChanged = hasChanged || finalReducerKeys.length !== Object.keys(state).length;
-	    return hasChanged ? nextState : state;
-	  };
-	}
-
-	function bindActionCreator(actionCreator, dispatch) {
-	  return function () {
-	    return dispatch(actionCreator.apply(this, arguments));
-	  };
-	}
-	/**
-	 * Turns an object whose values are action creators, into an object with the
-	 * same keys, but with every function wrapped into a `dispatch` call so they
-	 * may be invoked directly. This is just a convenience method, as you can call
-	 * `store.dispatch(MyActionCreators.doSomething())` yourself just fine.
-	 *
-	 * For convenience, you can also pass an action creator as the first argument,
-	 * and get a dispatch wrapped function in return.
-	 *
-	 * @param {Function|Object} actionCreators An object whose values are action
-	 * creator functions. One handy way to obtain it is to use ES6 `import * as`
-	 * syntax. You may also pass a single function.
-	 *
-	 * @param {Function} dispatch The `dispatch` function available on your Redux
-	 * store.
-	 *
-	 * @returns {Function|Object} The object mimicking the original object, but with
-	 * every action creator wrapped into the `dispatch` call. If you passed a
-	 * function as `actionCreators`, the return value will also be a single
-	 * function.
-	 */
-
-
-	function bindActionCreators(actionCreators, dispatch) {
-	  if (typeof actionCreators === 'function') {
-	    return bindActionCreator(actionCreators, dispatch);
-	  }
-
-	  if (typeof actionCreators !== 'object' || actionCreators === null) {
-	    throw new Error("bindActionCreators expected an object or a function, but instead received: '" + kindOf(actionCreators) + "'. " + "Did you write \"import ActionCreators from\" instead of \"import * as ActionCreators from\"?");
-	  }
-
-	  var boundActionCreators = {};
-
-	  for (var key in actionCreators) {
-	    var actionCreator = actionCreators[key];
-
-	    if (typeof actionCreator === 'function') {
-	      boundActionCreators[key] = bindActionCreator(actionCreator, dispatch);
-	    }
-	  }
-
-	  return boundActionCreators;
-	}
-
-	function _defineProperty(obj, key, value) {
-	  if (key in obj) {
-	    Object.defineProperty(obj, key, {
-	      value: value,
-	      enumerable: true,
-	      configurable: true,
-	      writable: true
-	    });
-	  } else {
-	    obj[key] = value;
-	  }
-
-	  return obj;
-	}
-
-	function ownKeys(object, enumerableOnly) {
-	  var keys = Object.keys(object);
-
-	  if (Object.getOwnPropertySymbols) {
-	    var symbols = Object.getOwnPropertySymbols(object);
-	    if (enumerableOnly) symbols = symbols.filter(function (sym) {
-	      return Object.getOwnPropertyDescriptor(object, sym).enumerable;
-	    });
-	    keys.push.apply(keys, symbols);
-	  }
-
-	  return keys;
-	}
-
-	function _objectSpread2(target) {
-	  for (var i = 1; i < arguments.length; i++) {
-	    var source = arguments[i] != null ? arguments[i] : {};
-
-	    if (i % 2) {
-	      ownKeys(Object(source), true).forEach(function (key) {
-	        _defineProperty(target, key, source[key]);
-	      });
-	    } else if (Object.getOwnPropertyDescriptors) {
-	      Object.defineProperties(target, Object.getOwnPropertyDescriptors(source));
-	    } else {
-	      ownKeys(Object(source)).forEach(function (key) {
-	        Object.defineProperty(target, key, Object.getOwnPropertyDescriptor(source, key));
-	      });
-	    }
-	  }
-
-	  return target;
-	}
-
-	/**
-	 * Composes single-argument functions from right to left. The rightmost
-	 * function can take multiple arguments as it provides the signature for
-	 * the resulting composite function.
-	 *
-	 * @param {...Function} funcs The functions to compose.
-	 * @returns {Function} A function obtained by composing the argument functions
-	 * from right to left. For example, compose(f, g, h) is identical to doing
-	 * (...args) => f(g(h(...args))).
-	 */
-	function compose() {
-	  for (var _len = arguments.length, funcs = new Array(_len), _key = 0; _key < _len; _key++) {
-	    funcs[_key] = arguments[_key];
-	  }
-
-	  if (funcs.length === 0) {
-	    return function (arg) {
-	      return arg;
-	    };
-	  }
-
-	  if (funcs.length === 1) {
-	    return funcs[0];
-	  }
-
-	  return funcs.reduce(function (a, b) {
-	    return function () {
-	      return a(b.apply(void 0, arguments));
-	    };
-	  });
-	}
-
-	/**
-	 * Creates a store enhancer that applies middleware to the dispatch method
-	 * of the Redux store. This is handy for a variety of tasks, such as expressing
-	 * asynchronous actions in a concise manner, or logging every action payload.
-	 *
-	 * See `redux-thunk` package as an example of the Redux middleware.
-	 *
-	 * Because middleware is potentially asynchronous, this should be the first
-	 * store enhancer in the composition chain.
-	 *
-	 * Note that each middleware will be given the `dispatch` and `getState` functions
-	 * as named arguments.
-	 *
-	 * @param {...Function} middlewares The middleware chain to be applied.
-	 * @returns {Function} A store enhancer applying the middleware.
-	 */
-
-	function applyMiddleware() {
-	  for (var _len = arguments.length, middlewares = new Array(_len), _key = 0; _key < _len; _key++) {
-	    middlewares[_key] = arguments[_key];
-	  }
-
-	  return function (createStore) {
-	    return function () {
-	      var store = createStore.apply(void 0, arguments);
-
-	      var _dispatch = function dispatch() {
-	        throw new Error('Dispatching while constructing your middleware is not allowed. ' + 'Other middleware would not be applied to this dispatch.');
-	      };
-
-	      var middlewareAPI = {
-	        getState: store.getState,
-	        dispatch: function dispatch() {
-	          return _dispatch.apply(void 0, arguments);
-	        }
-	      };
-	      var chain = middlewares.map(function (middleware) {
-	        return middleware(middlewareAPI);
-	      });
-	      _dispatch = compose.apply(void 0, chain)(store.dispatch);
-	      return _objectSpread2(_objectSpread2({}, store), {}, {
-	        dispatch: _dispatch
-	      });
-	    };
-	  };
-	}
-
-	/*
-	 * This is a dummy function to check if the function name has been altered by minification.
-	 * If the function has been minified and NODE_ENV !== 'production', warn the user.
-	 */
-
-	function isCrushed() {}
-
-	if (typeof isCrushed.name === 'string' && isCrushed.name !== 'isCrushed') {
-	  warning('You are currently using minified code outside of NODE_ENV === "production". ' + 'This means that you are running a slower development build of Redux. ' + 'You can use loose-envify (https://github.com/zertosh/loose-envify) for browserify ' + 'or setting mode to production in webpack (https://webpack.js.org/concepts/mode/) ' + 'to ensure you have the correct code for your production build.');
-	}
-
-	exports.__DO_NOT_USE__ActionTypes = ActionTypes;
-	exports.applyMiddleware = applyMiddleware;
-	exports.bindActionCreators = bindActionCreators;
-	exports.combineReducers = combineReducers;
-	exports.compose = compose;
-	exports.createStore = createStore;
-	exports.legacy_createStore = legacy_createStore;
-
-	Object.defineProperty(exports, '__esModule', { value: true });
-
-	})));
-} (redux, redux.exports));
+function ownKeys(object, enumerableOnly) {
+  var keys = Object.keys(object);
+
+  if (Object.getOwnPropertySymbols) {
+    var symbols = Object.getOwnPropertySymbols(object);
+    enumerableOnly && (symbols = symbols.filter(function (sym) {
+      return Object.getOwnPropertyDescriptor(object, sym).enumerable;
+    })), keys.push.apply(keys, symbols);
+  }
+
+  return keys;
+}
+
+function _objectSpread2(target) {
+  for (var i = 1; i < arguments.length; i++) {
+    var source = null != arguments[i] ? arguments[i] : {};
+    i % 2 ? ownKeys(Object(source), !0).forEach(function (key) {
+      _defineProperty(target, key, source[key]);
+    }) : Object.getOwnPropertyDescriptors ? Object.defineProperties(target, Object.getOwnPropertyDescriptors(source)) : ownKeys(Object(source)).forEach(function (key) {
+      Object.defineProperty(target, key, Object.getOwnPropertyDescriptor(source, key));
+    });
+  }
+
+  return target;
+}
+
+/**
+ * Adapted from React: https://github.com/facebook/react/blob/master/packages/shared/formatProdErrorMessage.js
+ *
+ * Do not require this module directly! Use normal throw error calls. These messages will be replaced with error codes
+ * during build.
+ * @param {number} code
+ */
+function formatProdErrorMessage(code) {
+  return "Minified Redux error #" + code + "; visit https://redux.js.org/Errors?code=" + code + " for the full message or " + 'use the non-minified dev environment for full errors. ';
+}
+
+// Inlined version of the `symbol-observable` polyfill
+var $$observable = (function () {
+  return typeof Symbol === 'function' && Symbol.observable || '@@observable';
+})();
+
+/**
+ * These are private action types reserved by Redux.
+ * For any unknown actions, you must return the current state.
+ * If the current state is undefined, you must return the initial state.
+ * Do not reference these action types directly in your code.
+ */
+var randomString = function randomString() {
+  return Math.random().toString(36).substring(7).split('').join('.');
+};
+
+var ActionTypes$1 = {
+  INIT: "@@redux/INIT" + randomString(),
+  REPLACE: "@@redux/REPLACE" + randomString(),
+  PROBE_UNKNOWN_ACTION: function PROBE_UNKNOWN_ACTION() {
+    return "@@redux/PROBE_UNKNOWN_ACTION" + randomString();
+  }
+};
+
+/**
+ * @param {any} obj The object to inspect.
+ * @returns {boolean} True if the argument appears to be a plain object.
+ */
+function isPlainObject(obj) {
+  if (typeof obj !== 'object' || obj === null) return false;
+  var proto = obj;
+
+  while (Object.getPrototypeOf(proto) !== null) {
+    proto = Object.getPrototypeOf(proto);
+  }
+
+  return Object.getPrototypeOf(obj) === proto;
+}
+
+// Inlined / shortened version of `kindOf` from https://github.com/jonschlinkert/kind-of
+function miniKindOf(val) {
+  if (val === void 0) return 'undefined';
+  if (val === null) return 'null';
+  var type = typeof val;
+
+  switch (type) {
+    case 'boolean':
+    case 'string':
+    case 'number':
+    case 'symbol':
+    case 'function':
+      {
+        return type;
+      }
+  }
+
+  if (Array.isArray(val)) return 'array';
+  if (isDate(val)) return 'date';
+  if (isError(val)) return 'error';
+  var constructorName = ctorName(val);
+
+  switch (constructorName) {
+    case 'Symbol':
+    case 'Promise':
+    case 'WeakMap':
+    case 'WeakSet':
+    case 'Map':
+    case 'Set':
+      return constructorName;
+  } // other
+
+
+  return type.slice(8, -1).toLowerCase().replace(/\s/g, '');
+}
+
+function ctorName(val) {
+  return typeof val.constructor === 'function' ? val.constructor.name : null;
+}
+
+function isError(val) {
+  return val instanceof Error || typeof val.message === 'string' && val.constructor && typeof val.constructor.stackTraceLimit === 'number';
+}
+
+function isDate(val) {
+  if (val instanceof Date) return true;
+  return typeof val.toDateString === 'function' && typeof val.getDate === 'function' && typeof val.setDate === 'function';
+}
+
+function kindOf(val) {
+  var typeOfVal = typeof val;
+
+  if (process.env.NODE_ENV !== 'production') {
+    typeOfVal = miniKindOf(val);
+  }
+
+  return typeOfVal;
+}
+
+/**
+ * @deprecated
+ *
+ * **We recommend using the `configureStore` method
+ * of the `@reduxjs/toolkit` package**, which replaces `createStore`.
+ *
+ * Redux Toolkit is our recommended approach for writing Redux logic today,
+ * including store setup, reducers, data fetching, and more.
+ *
+ * **For more details, please read this Redux docs page:**
+ * **https://redux.js.org/introduction/why-rtk-is-redux-today**
+ *
+ * `configureStore` from Redux Toolkit is an improved version of `createStore` that
+ * simplifies setup and helps avoid common bugs.
+ *
+ * You should not be using the `redux` core package by itself today, except for learning purposes.
+ * The `createStore` method from the core `redux` package will not be removed, but we encourage
+ * all users to migrate to using Redux Toolkit for all Redux code.
+ *
+ * If you want to use `createStore` without this visual deprecation warning, use
+ * the `legacy_createStore` import instead:
+ *
+ * `import { legacy_createStore as createStore} from 'redux'`
+ *
+ */
+
+function createStore(reducer, preloadedState, enhancer) {
+  var _ref2;
+
+  if (typeof preloadedState === 'function' && typeof enhancer === 'function' || typeof enhancer === 'function' && typeof arguments[3] === 'function') {
+    throw new Error(process.env.NODE_ENV === "production" ? formatProdErrorMessage(0) : 'It looks like you are passing several store enhancers to ' + 'createStore(). This is not supported. Instead, compose them ' + 'together to a single function. See https://redux.js.org/tutorials/fundamentals/part-4-store#creating-a-store-with-enhancers for an example.');
+  }
+
+  if (typeof preloadedState === 'function' && typeof enhancer === 'undefined') {
+    enhancer = preloadedState;
+    preloadedState = undefined;
+  }
+
+  if (typeof enhancer !== 'undefined') {
+    if (typeof enhancer !== 'function') {
+      throw new Error(process.env.NODE_ENV === "production" ? formatProdErrorMessage(1) : "Expected the enhancer to be a function. Instead, received: '" + kindOf(enhancer) + "'");
+    }
+
+    return enhancer(createStore)(reducer, preloadedState);
+  }
+
+  if (typeof reducer !== 'function') {
+    throw new Error(process.env.NODE_ENV === "production" ? formatProdErrorMessage(2) : "Expected the root reducer to be a function. Instead, received: '" + kindOf(reducer) + "'");
+  }
+
+  var currentReducer = reducer;
+  var currentState = preloadedState;
+  var currentListeners = [];
+  var nextListeners = currentListeners;
+  var isDispatching = false;
+  /**
+   * This makes a shallow copy of currentListeners so we can use
+   * nextListeners as a temporary list while dispatching.
+   *
+   * This prevents any bugs around consumers calling
+   * subscribe/unsubscribe in the middle of a dispatch.
+   */
+
+  function ensureCanMutateNextListeners() {
+    if (nextListeners === currentListeners) {
+      nextListeners = currentListeners.slice();
+    }
+  }
+  /**
+   * Reads the state tree managed by the store.
+   *
+   * @returns {any} The current state tree of your application.
+   */
+
+
+  function getState() {
+    if (isDispatching) {
+      throw new Error(process.env.NODE_ENV === "production" ? formatProdErrorMessage(3) : 'You may not call store.getState() while the reducer is executing. ' + 'The reducer has already received the state as an argument. ' + 'Pass it down from the top reducer instead of reading it from the store.');
+    }
+
+    return currentState;
+  }
+  /**
+   * Adds a change listener. It will be called any time an action is dispatched,
+   * and some part of the state tree may potentially have changed. You may then
+   * call `getState()` to read the current state tree inside the callback.
+   *
+   * You may call `dispatch()` from a change listener, with the following
+   * caveats:
+   *
+   * 1. The subscriptions are snapshotted just before every `dispatch()` call.
+   * If you subscribe or unsubscribe while the listeners are being invoked, this
+   * will not have any effect on the `dispatch()` that is currently in progress.
+   * However, the next `dispatch()` call, whether nested or not, will use a more
+   * recent snapshot of the subscription list.
+   *
+   * 2. The listener should not expect to see all state changes, as the state
+   * might have been updated multiple times during a nested `dispatch()` before
+   * the listener is called. It is, however, guaranteed that all subscribers
+   * registered before the `dispatch()` started will be called with the latest
+   * state by the time it exits.
+   *
+   * @param {Function} listener A callback to be invoked on every dispatch.
+   * @returns {Function} A function to remove this change listener.
+   */
+
+
+  function subscribe(listener) {
+    if (typeof listener !== 'function') {
+      throw new Error(process.env.NODE_ENV === "production" ? formatProdErrorMessage(4) : "Expected the listener to be a function. Instead, received: '" + kindOf(listener) + "'");
+    }
+
+    if (isDispatching) {
+      throw new Error(process.env.NODE_ENV === "production" ? formatProdErrorMessage(5) : 'You may not call store.subscribe() while the reducer is executing. ' + 'If you would like to be notified after the store has been updated, subscribe from a ' + 'component and invoke store.getState() in the callback to access the latest state. ' + 'See https://redux.js.org/api/store#subscribelistener for more details.');
+    }
+
+    var isSubscribed = true;
+    ensureCanMutateNextListeners();
+    nextListeners.push(listener);
+    return function unsubscribe() {
+      if (!isSubscribed) {
+        return;
+      }
+
+      if (isDispatching) {
+        throw new Error(process.env.NODE_ENV === "production" ? formatProdErrorMessage(6) : 'You may not unsubscribe from a store listener while the reducer is executing. ' + 'See https://redux.js.org/api/store#subscribelistener for more details.');
+      }
+
+      isSubscribed = false;
+      ensureCanMutateNextListeners();
+      var index = nextListeners.indexOf(listener);
+      nextListeners.splice(index, 1);
+      currentListeners = null;
+    };
+  }
+  /**
+   * Dispatches an action. It is the only way to trigger a state change.
+   *
+   * The `reducer` function, used to create the store, will be called with the
+   * current state tree and the given `action`. Its return value will
+   * be considered the **next** state of the tree, and the change listeners
+   * will be notified.
+   *
+   * The base implementation only supports plain object actions. If you want to
+   * dispatch a Promise, an Observable, a thunk, or something else, you need to
+   * wrap your store creating function into the corresponding middleware. For
+   * example, see the documentation for the `redux-thunk` package. Even the
+   * middleware will eventually dispatch plain object actions using this method.
+   *
+   * @param {Object} action A plain object representing “what changed”. It is
+   * a good idea to keep actions serializable so you can record and replay user
+   * sessions, or use the time travelling `redux-devtools`. An action must have
+   * a `type` property which may not be `undefined`. It is a good idea to use
+   * string constants for action types.
+   *
+   * @returns {Object} For convenience, the same action object you dispatched.
+   *
+   * Note that, if you use a custom middleware, it may wrap `dispatch()` to
+   * return something else (for example, a Promise you can await).
+   */
+
+
+  function dispatch(action) {
+    if (!isPlainObject(action)) {
+      throw new Error(process.env.NODE_ENV === "production" ? formatProdErrorMessage(7) : "Actions must be plain objects. Instead, the actual type was: '" + kindOf(action) + "'. You may need to add middleware to your store setup to handle dispatching other values, such as 'redux-thunk' to handle dispatching functions. See https://redux.js.org/tutorials/fundamentals/part-4-store#middleware and https://redux.js.org/tutorials/fundamentals/part-6-async-logic#using-the-redux-thunk-middleware for examples.");
+    }
+
+    if (typeof action.type === 'undefined') {
+      throw new Error(process.env.NODE_ENV === "production" ? formatProdErrorMessage(8) : 'Actions may not have an undefined "type" property. You may have misspelled an action type string constant.');
+    }
+
+    if (isDispatching) {
+      throw new Error(process.env.NODE_ENV === "production" ? formatProdErrorMessage(9) : 'Reducers may not dispatch actions.');
+    }
+
+    try {
+      isDispatching = true;
+      currentState = currentReducer(currentState, action);
+    } finally {
+      isDispatching = false;
+    }
+
+    var listeners = currentListeners = nextListeners;
+
+    for (var i = 0; i < listeners.length; i++) {
+      var listener = listeners[i];
+      listener();
+    }
+
+    return action;
+  }
+  /**
+   * Replaces the reducer currently used by the store to calculate the state.
+   *
+   * You might need this if your app implements code splitting and you want to
+   * load some of the reducers dynamically. You might also need this if you
+   * implement a hot reloading mechanism for Redux.
+   *
+   * @param {Function} nextReducer The reducer for the store to use instead.
+   * @returns {void}
+   */
+
+
+  function replaceReducer(nextReducer) {
+    if (typeof nextReducer !== 'function') {
+      throw new Error(process.env.NODE_ENV === "production" ? formatProdErrorMessage(10) : "Expected the nextReducer to be a function. Instead, received: '" + kindOf(nextReducer));
+    }
+
+    currentReducer = nextReducer; // This action has a similiar effect to ActionTypes.INIT.
+    // Any reducers that existed in both the new and old rootReducer
+    // will receive the previous state. This effectively populates
+    // the new state tree with any relevant data from the old one.
+
+    dispatch({
+      type: ActionTypes$1.REPLACE
+    });
+  }
+  /**
+   * Interoperability point for observable/reactive libraries.
+   * @returns {observable} A minimal observable of state changes.
+   * For more information, see the observable proposal:
+   * https://github.com/tc39/proposal-observable
+   */
+
+
+  function observable() {
+    var _ref;
+
+    var outerSubscribe = subscribe;
+    return _ref = {
+      /**
+       * The minimal observable subscription method.
+       * @param {Object} observer Any object that can be used as an observer.
+       * The observer object should have a `next` method.
+       * @returns {subscription} An object with an `unsubscribe` method that can
+       * be used to unsubscribe the observable from the store, and prevent further
+       * emission of values from the observable.
+       */
+      subscribe: function subscribe(observer) {
+        if (typeof observer !== 'object' || observer === null) {
+          throw new Error(process.env.NODE_ENV === "production" ? formatProdErrorMessage(11) : "Expected the observer to be an object. Instead, received: '" + kindOf(observer) + "'");
+        }
+
+        function observeState() {
+          if (observer.next) {
+            observer.next(getState());
+          }
+        }
+
+        observeState();
+        var unsubscribe = outerSubscribe(observeState);
+        return {
+          unsubscribe: unsubscribe
+        };
+      }
+    }, _ref[$$observable] = function () {
+      return this;
+    }, _ref;
+  } // When a store is created, an "INIT" action is dispatched so that every
+  // reducer returns their initial state. This effectively populates
+  // the initial state tree.
+
+
+  dispatch({
+    type: ActionTypes$1.INIT
+  });
+  return _ref2 = {
+    dispatch: dispatch,
+    subscribe: subscribe,
+    getState: getState,
+    replaceReducer: replaceReducer
+  }, _ref2[$$observable] = observable, _ref2;
+}
+
+/**
+ * Prints a warning in the console if it exists.
+ *
+ * @param {String} message The warning message.
+ * @returns {void}
+ */
+function warning(message) {
+  /* eslint-disable no-console */
+  if (typeof console !== 'undefined' && typeof console.error === 'function') {
+    console.error(message);
+  }
+  /* eslint-enable no-console */
+
+
+  try {
+    // This error was thrown as a convenience so that if you enable
+    // "break on all exceptions" in your console,
+    // it would pause the execution at this line.
+    throw new Error(message);
+  } catch (e) {} // eslint-disable-line no-empty
+
+}
+
+function getUnexpectedStateShapeWarningMessage(inputState, reducers, action, unexpectedKeyCache) {
+  var reducerKeys = Object.keys(reducers);
+  var argumentName = action && action.type === ActionTypes$1.INIT ? 'preloadedState argument passed to createStore' : 'previous state received by the reducer';
+
+  if (reducerKeys.length === 0) {
+    return 'Store does not have a valid reducer. Make sure the argument passed ' + 'to combineReducers is an object whose values are reducers.';
+  }
+
+  if (!isPlainObject(inputState)) {
+    return "The " + argumentName + " has unexpected type of \"" + kindOf(inputState) + "\". Expected argument to be an object with the following " + ("keys: \"" + reducerKeys.join('", "') + "\"");
+  }
+
+  var unexpectedKeys = Object.keys(inputState).filter(function (key) {
+    return !reducers.hasOwnProperty(key) && !unexpectedKeyCache[key];
+  });
+  unexpectedKeys.forEach(function (key) {
+    unexpectedKeyCache[key] = true;
+  });
+  if (action && action.type === ActionTypes$1.REPLACE) return;
+
+  if (unexpectedKeys.length > 0) {
+    return "Unexpected " + (unexpectedKeys.length > 1 ? 'keys' : 'key') + " " + ("\"" + unexpectedKeys.join('", "') + "\" found in " + argumentName + ". ") + "Expected to find one of the known reducer keys instead: " + ("\"" + reducerKeys.join('", "') + "\". Unexpected keys will be ignored.");
+  }
+}
+
+function assertReducerShape(reducers) {
+  Object.keys(reducers).forEach(function (key) {
+    var reducer = reducers[key];
+    var initialState = reducer(undefined, {
+      type: ActionTypes$1.INIT
+    });
+
+    if (typeof initialState === 'undefined') {
+      throw new Error(process.env.NODE_ENV === "production" ? formatProdErrorMessage(12) : "The slice reducer for key \"" + key + "\" returned undefined during initialization. " + "If the state passed to the reducer is undefined, you must " + "explicitly return the initial state. The initial state may " + "not be undefined. If you don't want to set a value for this reducer, " + "you can use null instead of undefined.");
+    }
+
+    if (typeof reducer(undefined, {
+      type: ActionTypes$1.PROBE_UNKNOWN_ACTION()
+    }) === 'undefined') {
+      throw new Error(process.env.NODE_ENV === "production" ? formatProdErrorMessage(13) : "The slice reducer for key \"" + key + "\" returned undefined when probed with a random type. " + ("Don't try to handle '" + ActionTypes$1.INIT + "' or other actions in \"redux/*\" ") + "namespace. They are considered private. Instead, you must return the " + "current state for any unknown actions, unless it is undefined, " + "in which case you must return the initial state, regardless of the " + "action type. The initial state may not be undefined, but can be null.");
+    }
+  });
+}
+/**
+ * Turns an object whose values are different reducer functions, into a single
+ * reducer function. It will call every child reducer, and gather their results
+ * into a single state object, whose keys correspond to the keys of the passed
+ * reducer functions.
+ *
+ * @param {Object} reducers An object whose values correspond to different
+ * reducer functions that need to be combined into one. One handy way to obtain
+ * it is to use ES6 `import * as reducers` syntax. The reducers may never return
+ * undefined for any action. Instead, they should return their initial state
+ * if the state passed to them was undefined, and the current state for any
+ * unrecognized action.
+ *
+ * @returns {Function} A reducer function that invokes every reducer inside the
+ * passed object, and builds a state object with the same shape.
+ */
+
+
+function combineReducers(reducers) {
+  var reducerKeys = Object.keys(reducers);
+  var finalReducers = {};
+
+  for (var i = 0; i < reducerKeys.length; i++) {
+    var key = reducerKeys[i];
+
+    if (process.env.NODE_ENV !== 'production') {
+      if (typeof reducers[key] === 'undefined') {
+        warning("No reducer provided for key \"" + key + "\"");
+      }
+    }
+
+    if (typeof reducers[key] === 'function') {
+      finalReducers[key] = reducers[key];
+    }
+  }
+
+  var finalReducerKeys = Object.keys(finalReducers); // This is used to make sure we don't warn about the same
+  // keys multiple times.
+
+  var unexpectedKeyCache;
+
+  if (process.env.NODE_ENV !== 'production') {
+    unexpectedKeyCache = {};
+  }
+
+  var shapeAssertionError;
+
+  try {
+    assertReducerShape(finalReducers);
+  } catch (e) {
+    shapeAssertionError = e;
+  }
+
+  return function combination(state, action) {
+    if (state === void 0) {
+      state = {};
+    }
+
+    if (shapeAssertionError) {
+      throw shapeAssertionError;
+    }
+
+    if (process.env.NODE_ENV !== 'production') {
+      var warningMessage = getUnexpectedStateShapeWarningMessage(state, finalReducers, action, unexpectedKeyCache);
+
+      if (warningMessage) {
+        warning(warningMessage);
+      }
+    }
+
+    var hasChanged = false;
+    var nextState = {};
+
+    for (var _i = 0; _i < finalReducerKeys.length; _i++) {
+      var _key = finalReducerKeys[_i];
+      var reducer = finalReducers[_key];
+      var previousStateForKey = state[_key];
+      var nextStateForKey = reducer(previousStateForKey, action);
+
+      if (typeof nextStateForKey === 'undefined') {
+        var actionType = action && action.type;
+        throw new Error(process.env.NODE_ENV === "production" ? formatProdErrorMessage(14) : "When called with an action of type " + (actionType ? "\"" + String(actionType) + "\"" : '(unknown type)') + ", the slice reducer for key \"" + _key + "\" returned undefined. " + "To ignore an action, you must explicitly return the previous state. " + "If you want this reducer to hold no value, you can return null instead of undefined.");
+      }
+
+      nextState[_key] = nextStateForKey;
+      hasChanged = hasChanged || nextStateForKey !== previousStateForKey;
+    }
+
+    hasChanged = hasChanged || finalReducerKeys.length !== Object.keys(state).length;
+    return hasChanged ? nextState : state;
+  };
+}
+
+/**
+ * Composes single-argument functions from right to left. The rightmost
+ * function can take multiple arguments as it provides the signature for
+ * the resulting composite function.
+ *
+ * @param {...Function} funcs The functions to compose.
+ * @returns {Function} A function obtained by composing the argument functions
+ * from right to left. For example, compose(f, g, h) is identical to doing
+ * (...args) => f(g(h(...args))).
+ */
+function compose() {
+  for (var _len = arguments.length, funcs = new Array(_len), _key = 0; _key < _len; _key++) {
+    funcs[_key] = arguments[_key];
+  }
+
+  if (funcs.length === 0) {
+    return function (arg) {
+      return arg;
+    };
+  }
+
+  if (funcs.length === 1) {
+    return funcs[0];
+  }
+
+  return funcs.reduce(function (a, b) {
+    return function () {
+      return a(b.apply(void 0, arguments));
+    };
+  });
+}
+
+/**
+ * Creates a store enhancer that applies middleware to the dispatch method
+ * of the Redux store. This is handy for a variety of tasks, such as expressing
+ * asynchronous actions in a concise manner, or logging every action payload.
+ *
+ * See `redux-thunk` package as an example of the Redux middleware.
+ *
+ * Because middleware is potentially asynchronous, this should be the first
+ * store enhancer in the composition chain.
+ *
+ * Note that each middleware will be given the `dispatch` and `getState` functions
+ * as named arguments.
+ *
+ * @param {...Function} middlewares The middleware chain to be applied.
+ * @returns {Function} A store enhancer applying the middleware.
+ */
+
+function applyMiddleware() {
+  for (var _len = arguments.length, middlewares = new Array(_len), _key = 0; _key < _len; _key++) {
+    middlewares[_key] = arguments[_key];
+  }
+
+  return function (createStore) {
+    return function () {
+      var store = createStore.apply(void 0, arguments);
+
+      var _dispatch = function dispatch() {
+        throw new Error(process.env.NODE_ENV === "production" ? formatProdErrorMessage(15) : 'Dispatching while constructing your middleware is not allowed. ' + 'Other middleware would not be applied to this dispatch.');
+      };
+
+      var middlewareAPI = {
+        getState: store.getState,
+        dispatch: function dispatch() {
+          return _dispatch.apply(void 0, arguments);
+        }
+      };
+      var chain = middlewares.map(function (middleware) {
+        return middleware(middlewareAPI);
+      });
+      _dispatch = compose.apply(void 0, chain)(store.dispatch);
+      return _objectSpread2(_objectSpread2({}, store), {}, {
+        dispatch: _dispatch
+      });
+    };
+  };
+}
+
+/*
+ * This is a dummy function to check if the function name has been altered by minification.
+ * If the function has been minified and NODE_ENV !== 'production', warn the user.
+ */
+
+function isCrushed() {}
+
+if (process.env.NODE_ENV !== 'production' && typeof isCrushed.name === 'string' && isCrushed.name !== 'isCrushed') {
+  warning('You are currently using minified code outside of NODE_ENV === "production". ' + 'This means that you are running a slower development build of Redux. ' + 'You can use loose-envify (https://github.com/zertosh/loose-envify) for browserify ' + 'or setting mode to production in webpack (https://webpack.js.org/concepts/mode/) ' + 'to ensure you have the correct code for your production build.');
+}
 
 /** A function that accepts a potential "extra argument" value to be injected later,
  * and returns an instance of the thunk middleware that uses that value
  */
- function createThunkMiddleware(extraArgument) {
-    // Standard Redux middleware definition pattern:
-    // See: https://redux.js.org/tutorials/fundamentals/part-4-store#writing-custom-middleware
-    var middleware = function middleware(_ref) {
-      var dispatch = _ref.dispatch,
-          getState = _ref.getState;
-      return function (next) {
-        return function (action) {
-          // The thunk middleware looks for any functions that were passed to `store.dispatch`.
-          // If this "action" is really a function, call it and return the result.
-          if (typeof action === 'function') {
-            // Inject the store's `dispatch` and `getState` methods, as well as any "extra arg"
-            return action(dispatch, getState, extraArgument);
-          } // Otherwise, pass the action down the middleware chain as usual
-  
-  
-          return next(action);
-        };
+function createThunkMiddleware(extraArgument) {
+  // Standard Redux middleware definition pattern:
+  // See: https://redux.js.org/tutorials/fundamentals/part-4-store#writing-custom-middleware
+  var middleware = function middleware(_ref) {
+    var dispatch = _ref.dispatch,
+        getState = _ref.getState;
+    return function (next) {
+      return function (action) {
+        // The thunk middleware looks for any functions that were passed to `store.dispatch`.
+        // If this "action" is really a function, call it and return the result.
+        if (typeof action === 'function') {
+          // Inject the store's `dispatch` and `getState` methods, as well as any "extra arg"
+          return action(dispatch, getState, extraArgument);
+        } // Otherwise, pass the action down the middleware chain as usual
+
+
+        return next(action);
       };
     };
-  
-    return middleware;
-  }
-  
-  var thunk = createThunkMiddleware(); // Attach the factory function so users can create a customized version
-  // with whatever "extra arg" they want to inject into their thunks
-  
-  thunk.withExtraArgument = createThunkMiddleware;
+  };
+
+  return middleware;
+}
+
+var thunk = createThunkMiddleware(); // Attach the factory function so users can create a customized version
+// with whatever "extra arg" they want to inject into their thunks
+
+thunk.withExtraArgument = createThunkMiddleware;
 
 const defaultName = 'Untitled graph';
 
@@ -5583,13 +5479,623 @@ const diagramName = (state = defaultName, action) => {
     }
 };
 
-var reduxUndo = {exports: {}};
+function getDefaultExportFromCjs (x) {
+	return x && x.__esModule && Object.prototype.hasOwnProperty.call(x, 'default') ? x['default'] : x;
+}
 
-(function (module, exports) {
-	!function(t,e){module.exports=e();}(window,(function(){return function(t){var e={};function n(r){if(e[r])return e[r].exports;var o=e[r]={i:r,l:!1,exports:{}};return t[r].call(o.exports,o,o.exports,n),o.l=!0,o.exports}return n.m=t,n.c=e,n.d=function(t,e,r){n.o(t,e)||Object.defineProperty(t,e,{enumerable:!0,get:r});},n.r=function(t){"undefined"!=typeof Symbol&&Symbol.toStringTag&&Object.defineProperty(t,Symbol.toStringTag,{value:"Module"}),Object.defineProperty(t,"__esModule",{value:!0});},n.t=function(t,e){if(1&e&&(t=n(t)),8&e)return t;if(4&e&&"object"==typeof t&&t&&t.__esModule)return t;var r=Object.create(null);if(n.r(r),Object.defineProperty(r,"default",{enumerable:!0,value:t}),2&e&&"string"!=typeof t)for(var o in t)n.d(r,o,function(e){return t[e]}.bind(null,o));return r},n.n=function(t){var e=t&&t.__esModule?function(){return t.default}:function(){return t};return n.d(e,"a",e),e},n.o=function(t,e){return Object.prototype.hasOwnProperty.call(t,e)},n.p="",n(n.s=0)}([function(t,e,n){t.exports=n(1);},function(t,e,n){n.r(e);var r,o,i={UNDO:"@@redux-undo/UNDO",REDO:"@@redux-undo/REDO",JUMP_TO_FUTURE:"@@redux-undo/JUMP_TO_FUTURE",JUMP_TO_PAST:"@@redux-undo/JUMP_TO_PAST",JUMP:"@@redux-undo/JUMP",CLEAR_HISTORY:"@@redux-undo/CLEAR_HISTORY"},u={undo:function(){return {type:i.UNDO}},redo:function(){return {type:i.REDO}},jumpToFuture:function(t){return {type:i.JUMP_TO_FUTURE,index:t}},jumpToPast:function(t){return {type:i.JUMP_TO_PAST,index:t}},jump:function(t){return {type:i.JUMP,index:t}},clearHistory:function(){return {type:i.CLEAR_HISTORY}}};function c(t){var e=arguments.length>1&&void 0!==arguments[1]?arguments[1]:[];return Array.isArray(t)?t:"string"==typeof t?[t]:e}function a(t){return void 0!==t.present&&void 0!==t.future&&void 0!==t.past&&Array.isArray(t.future)&&Array.isArray(t.past)}function p(t){var e=c(t);return function(t){return e.indexOf(t.type)>=0}}function l(t){var e=c(t);return function(t){return e.indexOf(t.type)<0}}function f(){for(var t=arguments.length,e=new Array(t),n=0;n<t;n++)e[n]=arguments[n];return e.reduce((function(t,e){return function(n,r,o){return t(n,r,o)&&e(n,r,o)}}),(function(){return !0}))}function s(t){var e=c(t);return function(t){return e.indexOf(t.type)>=0?t.type:null}}function d(t,e,n){return {past:t,present:e,future:n,group:arguments.length>3&&void 0!==arguments[3]?arguments[3]:null,_latestUnfiltered:e,index:t.length,limit:t.length+n.length+1}}function y(t){return function(t){if(Array.isArray(t)){for(var e=0,n=new Array(t.length);e<t.length;e++)n[e]=t[e];return n}}(t)||function(t){if(Symbol.iterator in Object(t)||"[object Arguments]"===Object.prototype.toString.call(t))return Array.from(t)}(t)||function(){throw new TypeError("Invalid attempt to spread non-iterable instance")}()}var g={prevState:"#9E9E9E",action:"#03A9F4",nextState:"#4CAF50"};function v(t,e,n){return ["%c".concat(t),"color: ".concat(e,"; font-weight: bold"),n]}function O(t,e){o={header:[],prev:[],action:[],next:[],msgs:[]},r&&(console.group?(o.header=["%credux-undo","font-style: italic","action",t.type],o.action=v("action",g.action,t),o.prev=v("prev history",g.prevState,e)):(o.header=["redux-undo action",t.type],o.action=["action",t],o.prev=["prev history",e]));}function T(t){var e,n,i,u,c,a,p,l,f,s,d,O,T,b,m,h;r&&(console.group?o.next=v("next history",g.nextState,t):o.next=["next history",t],O=(d=o).header,T=d.prev,b=d.next,m=d.action,h=d.msgs,console.group?((e=console).groupCollapsed.apply(e,y(O)),(n=console).log.apply(n,y(T)),(i=console).log.apply(i,y(m)),(u=console).log.apply(u,y(b)),(c=console).log.apply(c,y(h)),console.groupEnd()):((a=console).log.apply(a,y(O)),(p=console).log.apply(p,y(T)),(l=console).log.apply(l,y(m)),(f=console).log.apply(f,y(b)),(s=console).log.apply(s,y(h))));}function b(){if(r){for(var t=arguments.length,e=new Array(t),n=0;n<t;n++)e[n]=arguments[n];o.msgs=o.msgs.concat([].concat(e,["\n"]));}}function m(t,e){var n=Object.keys(t);if(Object.getOwnPropertySymbols){var r=Object.getOwnPropertySymbols(t);e&&(r=r.filter((function(e){return Object.getOwnPropertyDescriptor(t,e).enumerable}))),n.push.apply(n,r);}return n}function h(t){for(var e=1;e<arguments.length;e++){var n=null!=arguments[e]?arguments[e]:{};e%2?m(Object(n),!0).forEach((function(e){x(t,e,n[e]);})):Object.getOwnPropertyDescriptors?Object.defineProperties(t,Object.getOwnPropertyDescriptors(n)):m(Object(n)).forEach((function(e){Object.defineProperty(t,e,Object.getOwnPropertyDescriptor(n,e));}));}return t}function x(t,e,n){return e in t?Object.defineProperty(t,e,{value:n,enumerable:!0,configurable:!0,writable:!0}):t[e]=n,t}function j(t){return function(t){if(Array.isArray(t)){for(var e=0,n=new Array(t.length);e<t.length;e++)n[e]=t[e];return n}}(t)||function(t){if(Symbol.iterator in Object(t)||"[object Arguments]"===Object.prototype.toString.call(t))return Array.from(t)}(t)||function(){throw new TypeError("Invalid attempt to spread non-iterable instance")}()}function A(t,e){var n=d([],t,[]);return e&&(n._latestUnfiltered=null),n}function _(t,e,n,r){var o=t.past.length+1;b("inserting",e),b("new free: ",n-o);var i=t.past,u=t._latestUnfiltered,c=n&&n<=o,a=i.slice(c?1:0);return d(null!=u?[].concat(j(a),[u]):a,e,[],r)}function P(t,e){if(e<0||e>=t.future.length)return t;var n=t.past,r=t.future,o=t._latestUnfiltered;return d([].concat(j(n),[o],j(r.slice(0,e))),r[e],r.slice(e+1))}function S(t,e){if(e<0||e>=t.past.length)return t;var n=t.past,r=t.future,o=t._latestUnfiltered,i=n.slice(0,e),u=[].concat(j(n.slice(e+1)),[o],j(r));return d(i,n[e],u)}function U(t,e){return e>0?P(t,e-1):e<0?S(t,t.past.length+e):t}function w(t,e){return e.indexOf(t)>-1?t:!t}function E(t){var e,n=arguments.length>1&&void 0!==arguments[1]?arguments[1]:{};e=n.debug,r=e;var o,u=h({limit:void 0,filter:function(){return !0},groupBy:function(){return null},undoType:i.UNDO,redoType:i.REDO,jumpToPastType:i.JUMP_TO_PAST,jumpToFutureType:i.JUMP_TO_FUTURE,jumpType:i.JUMP,neverSkipReducer:!1,ignoreInitialState:!1,syncFilter:!1},n,{initTypes:c(n.initTypes,["@@redux-undo/INIT"]),clearHistoryType:c(n.clearHistoryType,[i.CLEAR_HISTORY])}),p=u.neverSkipReducer?function(e,n){for(var r=arguments.length,o=new Array(r>2?r-2:0),i=2;i<r;i++)o[i-2]=arguments[i];return h({},e,{present:t.apply(void 0,[e.present,n].concat(o))})}:function(t){return t};return function(){var e=arguments.length>0&&void 0!==arguments[0]?arguments[0]:o,n=arguments.length>1&&void 0!==arguments[1]?arguments[1]:{};O(n,e);for(var r,i=e,c=arguments.length,l=new Array(c>2?c-2:0),f=2;f<c;f++)l[f-2]=arguments[f];if(!o){if(b("history is uninitialized"),void 0===e){var s={type:"@@redux-undo/CREATE_HISTORY"},y=t.apply(void 0,[e,s].concat(l));return i=A(y,u.ignoreInitialState),b("do not set initialState on probe actions"),T(i),i}a(e)?(i=o=u.ignoreInitialState?e:d(e.past,e.present,e.future),b("initialHistory initialized: initialState is a history",o)):(i=o=A(e,u.ignoreInitialState),b("initialHistory initialized: initialState is not a history",o));}switch(n.type){case void 0:return i;case u.undoType:return r=U(i,-1),b("perform undo"),T(r),p.apply(void 0,[r,n].concat(l));case u.redoType:return r=U(i,1),b("perform redo"),T(r),p.apply(void 0,[r,n].concat(l));case u.jumpToPastType:return r=S(i,n.index),b("perform jumpToPast to ".concat(n.index)),T(r),p.apply(void 0,[r,n].concat(l));case u.jumpToFutureType:return r=P(i,n.index),b("perform jumpToFuture to ".concat(n.index)),T(r),p.apply(void 0,[r,n].concat(l));case u.jumpType:return r=U(i,n.index),b("perform jump to ".concat(n.index)),T(r),p.apply(void 0,[r,n].concat(l));case w(n.type,u.clearHistoryType):return r=A(i.present,u.ignoreInitialState),b("perform clearHistory"),T(r),p.apply(void 0,[r,n].concat(l));default:if(r=t.apply(void 0,[i.present,n].concat(l)),u.initTypes.some((function(t){return t===n.type})))return b("reset history due to init action"),T(o),o;if(i._latestUnfiltered===r)return i;var g="function"==typeof u.filter&&!u.filter(n,r,i);if(g){var v=d(i.past,r,i.future,i.group);return u.syncFilter||(v._latestUnfiltered=i._latestUnfiltered),b("filter ignored action, not storing it in past"),T(v),v}var m=u.groupBy(n,r,i);if(null!=m&&m===i.group){var h=d(i.past,r,i.future,i.group);return b("groupBy grouped the action with the previous action"),T(h),h}return i=_(i,r,u.limit,m),b("inserted new state into history"),T(i),i}}}n.d(e,"ActionTypes",(function(){return i})),n.d(e,"ActionCreators",(function(){return u})),n.d(e,"parseActions",(function(){return c})),n.d(e,"isHistory",(function(){return a})),n.d(e,"includeAction",(function(){return p})),n.d(e,"excludeAction",(function(){return l})),n.d(e,"combineFilters",(function(){return f})),n.d(e,"groupByActionTypes",(function(){return s})),n.d(e,"newHistory",(function(){return d})),n.d(e,"default",(function(){return E}));}])}));
-} (reduxUndo));
+var lib = {};
 
-var undoable = /*@__PURE__*/getDefaultExportFromCjs(reduxUndo.exports);
+var actions = {};
+
+Object.defineProperty(actions, "__esModule", {
+  value: true
+});
+actions.ActionCreators = actions.ActionTypes = void 0;
+var ActionTypes = {
+  UNDO: '@@redux-undo/UNDO',
+  REDO: '@@redux-undo/REDO',
+  JUMP_TO_FUTURE: '@@redux-undo/JUMP_TO_FUTURE',
+  JUMP_TO_PAST: '@@redux-undo/JUMP_TO_PAST',
+  JUMP: '@@redux-undo/JUMP',
+  CLEAR_HISTORY: '@@redux-undo/CLEAR_HISTORY'
+};
+actions.ActionTypes = ActionTypes;
+var ActionCreators = {
+  undo: function undo() {
+    return {
+      type: ActionTypes.UNDO
+    };
+  },
+  redo: function redo() {
+    return {
+      type: ActionTypes.REDO
+    };
+  },
+  jumpToFuture: function jumpToFuture(index) {
+    return {
+      type: ActionTypes.JUMP_TO_FUTURE,
+      index: index
+    };
+  },
+  jumpToPast: function jumpToPast(index) {
+    return {
+      type: ActionTypes.JUMP_TO_PAST,
+      index: index
+    };
+  },
+  jump: function jump(index) {
+    return {
+      type: ActionTypes.JUMP,
+      index: index
+    };
+  },
+  clearHistory: function clearHistory() {
+    return {
+      type: ActionTypes.CLEAR_HISTORY
+    };
+  }
+};
+actions.ActionCreators = ActionCreators;
+
+var helpers = {};
+
+Object.defineProperty(helpers, "__esModule", {
+  value: true
+});
+helpers.parseActions = parseActions;
+helpers.isHistory = isHistory;
+helpers.includeAction = includeAction;
+helpers.excludeAction = excludeAction;
+helpers.combineFilters = combineFilters;
+helpers.groupByActionTypes = groupByActionTypes;
+helpers.newHistory = newHistory;
+
+// parseActions helper: takes a string (or array)
+//                      and makes it an array if it isn't yet
+function parseActions(rawActions) {
+  var defaultValue = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : [];
+
+  if (Array.isArray(rawActions)) {
+    return rawActions;
+  } else if (typeof rawActions === 'string') {
+    return [rawActions];
+  }
+
+  return defaultValue;
+} // isHistory helper: check for a valid history object
+
+
+function isHistory(history) {
+  return typeof history.present !== 'undefined' && typeof history.future !== 'undefined' && typeof history.past !== 'undefined' && Array.isArray(history.future) && Array.isArray(history.past);
+} // includeAction helper: whitelist actions to be added to the history
+
+
+function includeAction(rawActions) {
+  var actions = parseActions(rawActions);
+  return function (action) {
+    return actions.indexOf(action.type) >= 0;
+  };
+} // excludeAction helper: blacklist actions from being added to the history
+
+
+function excludeAction(rawActions) {
+  var actions = parseActions(rawActions);
+  return function (action) {
+    return actions.indexOf(action.type) < 0;
+  };
+} // combineFilters helper: combine multiple filters to one
+
+
+function combineFilters() {
+  for (var _len = arguments.length, filters = new Array(_len), _key = 0; _key < _len; _key++) {
+    filters[_key] = arguments[_key];
+  }
+
+  return filters.reduce(function (prev, curr) {
+    return function (action, currentState, previousHistory) {
+      return prev(action, currentState, previousHistory) && curr(action, currentState, previousHistory);
+    };
+  }, function () {
+    return true;
+  });
+}
+
+function groupByActionTypes(rawActions) {
+  var actions = parseActions(rawActions);
+  return function (action) {
+    return actions.indexOf(action.type) >= 0 ? action.type : null;
+  };
+}
+
+function newHistory(past, present, future) {
+  var group = arguments.length > 3 && arguments[3] !== undefined ? arguments[3] : null;
+  return {
+    past: past,
+    present: present,
+    future: future,
+    group: group,
+    _latestUnfiltered: present,
+    index: past.length,
+    limit: past.length + future.length + 1
+  };
+}
+
+var reducer = {};
+
+var debug = {};
+
+Object.defineProperty(debug, "__esModule", {
+  value: true
+});
+debug.set = set;
+debug.start = start;
+debug.end = end;
+debug.log = log;
+
+function _toConsumableArray(arr) { return _arrayWithoutHoles(arr) || _iterableToArray(arr) || _nonIterableSpread(); }
+
+function _nonIterableSpread() { throw new TypeError("Invalid attempt to spread non-iterable instance"); }
+
+function _iterableToArray(iter) { if (Symbol.iterator in Object(iter) || Object.prototype.toString.call(iter) === "[object Arguments]") return Array.from(iter); }
+
+function _arrayWithoutHoles(arr) { if (Array.isArray(arr)) { for (var i = 0, arr2 = new Array(arr.length); i < arr.length; i++) { arr2[i] = arr[i]; } return arr2; } }
+
+var __DEBUG__;
+
+var displayBuffer;
+var colors = {
+  prevState: '#9E9E9E',
+  action: '#03A9F4',
+  nextState: '#4CAF50'
+};
+/* istanbul ignore next: debug messaging is not tested */
+
+function initBuffer() {
+  displayBuffer = {
+    header: [],
+    prev: [],
+    action: [],
+    next: [],
+    msgs: []
+  };
+}
+/* istanbul ignore next: debug messaging is not tested */
+
+
+function printBuffer() {
+  var _displayBuffer = displayBuffer,
+      header = _displayBuffer.header,
+      prev = _displayBuffer.prev,
+      next = _displayBuffer.next,
+      action = _displayBuffer.action,
+      msgs = _displayBuffer.msgs;
+
+  if (console.group) {
+    var _console, _console2, _console3, _console4, _console5;
+
+    (_console = console).groupCollapsed.apply(_console, _toConsumableArray(header));
+
+    (_console2 = console).log.apply(_console2, _toConsumableArray(prev));
+
+    (_console3 = console).log.apply(_console3, _toConsumableArray(action));
+
+    (_console4 = console).log.apply(_console4, _toConsumableArray(next));
+
+    (_console5 = console).log.apply(_console5, _toConsumableArray(msgs));
+
+    console.groupEnd();
+  } else {
+    var _console6, _console7, _console8, _console9, _console10;
+
+    (_console6 = console).log.apply(_console6, _toConsumableArray(header));
+
+    (_console7 = console).log.apply(_console7, _toConsumableArray(prev));
+
+    (_console8 = console).log.apply(_console8, _toConsumableArray(action));
+
+    (_console9 = console).log.apply(_console9, _toConsumableArray(next));
+
+    (_console10 = console).log.apply(_console10, _toConsumableArray(msgs));
+  }
+}
+/* istanbul ignore next: debug messaging is not tested */
+
+
+function colorFormat(text, color, obj) {
+  return ["%c".concat(text), "color: ".concat(color, "; font-weight: bold"), obj];
+}
+/* istanbul ignore next: debug messaging is not tested */
+
+
+function start(action, state) {
+  initBuffer();
+
+  if (__DEBUG__) {
+    if (console.group) {
+      displayBuffer.header = ['%credux-undo', 'font-style: italic', 'action', action.type];
+      displayBuffer.action = colorFormat('action', colors.action, action);
+      displayBuffer.prev = colorFormat('prev history', colors.prevState, state);
+    } else {
+      displayBuffer.header = ['redux-undo action', action.type];
+      displayBuffer.action = ['action', action];
+      displayBuffer.prev = ['prev history', state];
+    }
+  }
+}
+/* istanbul ignore next: debug messaging is not tested */
+
+
+function end(nextState) {
+  if (__DEBUG__) {
+    if (console.group) {
+      displayBuffer.next = colorFormat('next history', colors.nextState, nextState);
+    } else {
+      displayBuffer.next = ['next history', nextState];
+    }
+
+    printBuffer();
+  }
+}
+/* istanbul ignore next: debug messaging is not tested */
+
+
+function log() {
+  if (__DEBUG__) {
+    for (var _len = arguments.length, args = new Array(_len), _key = 0; _key < _len; _key++) {
+      args[_key] = arguments[_key];
+    }
+
+    displayBuffer.msgs = displayBuffer.msgs.concat([].concat(args, ['\n']));
+  }
+}
+/* istanbul ignore next: debug messaging is not tested */
+
+
+function set(debug) {
+  __DEBUG__ = debug;
+}
+
+(function (exports) {
+
+	function _typeof(obj) { if (typeof Symbol === "function" && typeof Symbol.iterator === "symbol") { _typeof = function _typeof(obj) { return typeof obj; }; } else { _typeof = function _typeof(obj) { return obj && typeof Symbol === "function" && obj.constructor === Symbol && obj !== Symbol.prototype ? "symbol" : typeof obj; }; } return _typeof(obj); }
+
+	Object.defineProperty(exports, "__esModule", {
+	  value: true
+	});
+	exports["default"] = undoable;
+
+	var debug$1 = _interopRequireWildcard(debug);
+
+	var _actions = actions;
+
+	var _helpers = helpers;
+
+	function _getRequireWildcardCache() { if (typeof WeakMap !== "function") return null; var cache = new WeakMap(); _getRequireWildcardCache = function _getRequireWildcardCache() { return cache; }; return cache; }
+
+	function _interopRequireWildcard(obj) { if (obj && obj.__esModule) { return obj; } if (obj === null || _typeof(obj) !== "object" && typeof obj !== "function") { return { "default": obj }; } var cache = _getRequireWildcardCache(); if (cache && cache.has(obj)) { return cache.get(obj); } var newObj = {}; var hasPropertyDescriptor = Object.defineProperty && Object.getOwnPropertyDescriptor; for (var key in obj) { if (Object.prototype.hasOwnProperty.call(obj, key)) { var desc = hasPropertyDescriptor ? Object.getOwnPropertyDescriptor(obj, key) : null; if (desc && (desc.get || desc.set)) { Object.defineProperty(newObj, key, desc); } else { newObj[key] = obj[key]; } } } newObj["default"] = obj; if (cache) { cache.set(obj, newObj); } return newObj; }
+
+	function ownKeys(object, enumerableOnly) { var keys = Object.keys(object); if (Object.getOwnPropertySymbols) { var symbols = Object.getOwnPropertySymbols(object); if (enumerableOnly) symbols = symbols.filter(function (sym) { return Object.getOwnPropertyDescriptor(object, sym).enumerable; }); keys.push.apply(keys, symbols); } return keys; }
+
+	function _objectSpread(target) { for (var i = 1; i < arguments.length; i++) { var source = arguments[i] != null ? arguments[i] : {}; if (i % 2) { ownKeys(Object(source), true).forEach(function (key) { _defineProperty(target, key, source[key]); }); } else if (Object.getOwnPropertyDescriptors) { Object.defineProperties(target, Object.getOwnPropertyDescriptors(source)); } else { ownKeys(Object(source)).forEach(function (key) { Object.defineProperty(target, key, Object.getOwnPropertyDescriptor(source, key)); }); } } return target; }
+
+	function _defineProperty(obj, key, value) { if (key in obj) { Object.defineProperty(obj, key, { value: value, enumerable: true, configurable: true, writable: true }); } else { obj[key] = value; } return obj; }
+
+	function _toConsumableArray(arr) { return _arrayWithoutHoles(arr) || _iterableToArray(arr) || _nonIterableSpread(); }
+
+	function _nonIterableSpread() { throw new TypeError("Invalid attempt to spread non-iterable instance"); }
+
+	function _iterableToArray(iter) { if (Symbol.iterator in Object(iter) || Object.prototype.toString.call(iter) === "[object Arguments]") return Array.from(iter); }
+
+	function _arrayWithoutHoles(arr) { if (Array.isArray(arr)) { for (var i = 0, arr2 = new Array(arr.length); i < arr.length; i++) { arr2[i] = arr[i]; } return arr2; } }
+
+	function createHistory(state, ignoreInitialState) {
+	  // ignoreInitialState essentially prevents the user from undoing to the
+	  // beginning, in the case that the undoable reducer handles initialization
+	  // in a way that can't be redone simply
+	  var history = (0, _helpers.newHistory)([], state, []);
+
+	  if (ignoreInitialState) {
+	    history._latestUnfiltered = null;
+	  }
+
+	  return history;
+	} // insert: insert `state` into history, which means adding the current state
+	//         into `past`, setting the new `state` as `present` and erasing
+	//         the `future`.
+
+
+	function insert(history, state, limit, group) {
+	  var lengthWithoutFuture = history.past.length + 1;
+	  debug$1.log('inserting', state);
+	  debug$1.log('new free: ', limit - lengthWithoutFuture);
+	  var past = history.past,
+	      _latestUnfiltered = history._latestUnfiltered;
+	  var isHistoryOverflow = limit && limit <= lengthWithoutFuture;
+	  var pastSliced = past.slice(isHistoryOverflow ? 1 : 0);
+	  var newPast = _latestUnfiltered != null ? [].concat(_toConsumableArray(pastSliced), [_latestUnfiltered]) : pastSliced;
+	  return (0, _helpers.newHistory)(newPast, state, [], group);
+	} // jumpToFuture: jump to requested index in future history
+
+
+	function jumpToFuture(history, index) {
+	  if (index < 0 || index >= history.future.length) return history;
+	  var past = history.past,
+	      future = history.future,
+	      _latestUnfiltered = history._latestUnfiltered;
+	  var newPast = [].concat(_toConsumableArray(past), [_latestUnfiltered], _toConsumableArray(future.slice(0, index)));
+	  var newPresent = future[index];
+	  var newFuture = future.slice(index + 1);
+	  return (0, _helpers.newHistory)(newPast, newPresent, newFuture);
+	} // jumpToPast: jump to requested index in past history
+
+
+	function jumpToPast(history, index) {
+	  if (index < 0 || index >= history.past.length) return history;
+	  var past = history.past,
+	      future = history.future,
+	      _latestUnfiltered = history._latestUnfiltered;
+	  var newPast = past.slice(0, index);
+	  var newFuture = [].concat(_toConsumableArray(past.slice(index + 1)), [_latestUnfiltered], _toConsumableArray(future));
+	  var newPresent = past[index];
+	  return (0, _helpers.newHistory)(newPast, newPresent, newFuture);
+	} // jump: jump n steps in the past or forward
+
+
+	function jump(history, n) {
+	  if (n > 0) return jumpToFuture(history, n - 1);
+	  if (n < 0) return jumpToPast(history, history.past.length + n);
+	  return history;
+	} // helper to dynamically match in the reducer's switch-case
+
+
+	function actionTypeAmongClearHistoryType(actionType, clearHistoryType) {
+	  return clearHistoryType.indexOf(actionType) > -1 ? actionType : !actionType;
+	} // redux-undo higher order reducer
+
+
+	function undoable(reducer) {
+	  var rawConfig = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : {};
+	  debug$1.set(rawConfig.debug);
+
+	  var config = _objectSpread({
+	    limit: undefined,
+	    filter: function filter() {
+	      return true;
+	    },
+	    groupBy: function groupBy() {
+	      return null;
+	    },
+	    undoType: _actions.ActionTypes.UNDO,
+	    redoType: _actions.ActionTypes.REDO,
+	    jumpToPastType: _actions.ActionTypes.JUMP_TO_PAST,
+	    jumpToFutureType: _actions.ActionTypes.JUMP_TO_FUTURE,
+	    jumpType: _actions.ActionTypes.JUMP,
+	    neverSkipReducer: false,
+	    ignoreInitialState: false,
+	    syncFilter: false
+	  }, rawConfig, {
+	    initTypes: (0, _helpers.parseActions)(rawConfig.initTypes, ['@@redux-undo/INIT']),
+	    clearHistoryType: (0, _helpers.parseActions)(rawConfig.clearHistoryType, [_actions.ActionTypes.CLEAR_HISTORY])
+	  }); // Allows the user to call the reducer with redux-undo specific actions
+
+
+	  var skipReducer = config.neverSkipReducer ? function (res, action) {
+	    for (var _len = arguments.length, slices = new Array(_len > 2 ? _len - 2 : 0), _key = 2; _key < _len; _key++) {
+	      slices[_key - 2] = arguments[_key];
+	    }
+
+	    return _objectSpread({}, res, {
+	      present: reducer.apply(void 0, [res.present, action].concat(slices))
+	    });
+	  } : function (res) {
+	    return res;
+	  };
+	  var initialState;
+	  return function () {
+	    var state = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : initialState;
+	    var action = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : {};
+	    debug$1.start(action, state);
+	    var history = state;
+
+	    for (var _len2 = arguments.length, slices = new Array(_len2 > 2 ? _len2 - 2 : 0), _key2 = 2; _key2 < _len2; _key2++) {
+	      slices[_key2 - 2] = arguments[_key2];
+	    }
+
+	    if (!initialState) {
+	      debug$1.log('history is uninitialized');
+
+	      if (state === undefined) {
+	        var createHistoryAction = {
+	          type: '@@redux-undo/CREATE_HISTORY'
+	        };
+	        var start = reducer.apply(void 0, [state, createHistoryAction].concat(slices));
+	        history = createHistory(start, config.ignoreInitialState);
+	        debug$1.log('do not set initialState on probe actions');
+	        debug$1.end(history);
+	        return history;
+	      } else if ((0, _helpers.isHistory)(state)) {
+	        history = initialState = config.ignoreInitialState ? state : (0, _helpers.newHistory)(state.past, state.present, state.future);
+	        debug$1.log('initialHistory initialized: initialState is a history', initialState);
+	      } else {
+	        history = initialState = createHistory(state, config.ignoreInitialState);
+	        debug$1.log('initialHistory initialized: initialState is not a history', initialState);
+	      }
+	    }
+
+	    var res;
+
+	    switch (action.type) {
+	      case undefined:
+	        return history;
+
+	      case config.undoType:
+	        res = jump(history, -1);
+	        debug$1.log('perform undo');
+	        debug$1.end(res);
+	        return skipReducer.apply(void 0, [res, action].concat(slices));
+
+	      case config.redoType:
+	        res = jump(history, 1);
+	        debug$1.log('perform redo');
+	        debug$1.end(res);
+	        return skipReducer.apply(void 0, [res, action].concat(slices));
+
+	      case config.jumpToPastType:
+	        res = jumpToPast(history, action.index);
+	        debug$1.log("perform jumpToPast to ".concat(action.index));
+	        debug$1.end(res);
+	        return skipReducer.apply(void 0, [res, action].concat(slices));
+
+	      case config.jumpToFutureType:
+	        res = jumpToFuture(history, action.index);
+	        debug$1.log("perform jumpToFuture to ".concat(action.index));
+	        debug$1.end(res);
+	        return skipReducer.apply(void 0, [res, action].concat(slices));
+
+	      case config.jumpType:
+	        res = jump(history, action.index);
+	        debug$1.log("perform jump to ".concat(action.index));
+	        debug$1.end(res);
+	        return skipReducer.apply(void 0, [res, action].concat(slices));
+
+	      case actionTypeAmongClearHistoryType(action.type, config.clearHistoryType):
+	        res = createHistory(history.present, config.ignoreInitialState);
+	        debug$1.log('perform clearHistory');
+	        debug$1.end(res);
+	        return skipReducer.apply(void 0, [res, action].concat(slices));
+
+	      default:
+	        res = reducer.apply(void 0, [history.present, action].concat(slices));
+
+	        if (config.initTypes.some(function (actionType) {
+	          return actionType === action.type;
+	        })) {
+	          debug$1.log('reset history due to init action');
+	          debug$1.end(initialState);
+	          return initialState;
+	        }
+
+	        if (history._latestUnfiltered === res) {
+	          // Don't handle this action. Do not call debug.end here,
+	          // because this action should not produce side effects to the console
+	          return history;
+	        }
+	        /* eslint-disable-next-line no-case-declarations */
+
+
+	        var filtered = typeof config.filter === 'function' && !config.filter(action, res, history);
+
+	        if (filtered) {
+	          // if filtering an action, merely update the present
+	          var filteredState = (0, _helpers.newHistory)(history.past, res, history.future, history.group);
+
+	          if (!config.syncFilter) {
+	            filteredState._latestUnfiltered = history._latestUnfiltered;
+	          }
+
+	          debug$1.log('filter ignored action, not storing it in past');
+	          debug$1.end(filteredState);
+	          return filteredState;
+	        }
+	        /* eslint-disable-next-line no-case-declarations */
+
+
+	        var group = config.groupBy(action, res, history);
+
+	        if (group != null && group === history.group) {
+	          // if grouping with the previous action, only update the present
+	          var groupedState = (0, _helpers.newHistory)(history.past, res, history.future, history.group);
+	          debug$1.log('groupBy grouped the action with the previous action');
+	          debug$1.end(groupedState);
+	          return groupedState;
+	        } // If the action wasn't filtered or grouped, insert normally
+
+
+	        history = insert(history, res, config.limit, group);
+	        debug$1.log('inserted new state into history');
+	        debug$1.end(history);
+	        return history;
+	    }
+	  };
+	}
+} (reducer));
+
+(function (exports) {
+
+	Object.defineProperty(exports, "__esModule", {
+	  value: true
+	});
+	Object.defineProperty(exports, "ActionTypes", {
+	  enumerable: true,
+	  get: function get() {
+	    return _actions.ActionTypes;
+	  }
+	});
+	Object.defineProperty(exports, "ActionCreators", {
+	  enumerable: true,
+	  get: function get() {
+	    return _actions.ActionCreators;
+	  }
+	});
+	Object.defineProperty(exports, "parseActions", {
+	  enumerable: true,
+	  get: function get() {
+	    return _helpers.parseActions;
+	  }
+	});
+	Object.defineProperty(exports, "isHistory", {
+	  enumerable: true,
+	  get: function get() {
+	    return _helpers.isHistory;
+	  }
+	});
+	Object.defineProperty(exports, "includeAction", {
+	  enumerable: true,
+	  get: function get() {
+	    return _helpers.includeAction;
+	  }
+	});
+	Object.defineProperty(exports, "excludeAction", {
+	  enumerable: true,
+	  get: function get() {
+	    return _helpers.excludeAction;
+	  }
+	});
+	Object.defineProperty(exports, "combineFilters", {
+	  enumerable: true,
+	  get: function get() {
+	    return _helpers.combineFilters;
+	  }
+	});
+	Object.defineProperty(exports, "groupByActionTypes", {
+	  enumerable: true,
+	  get: function get() {
+	    return _helpers.groupByActionTypes;
+	  }
+	});
+	Object.defineProperty(exports, "newHistory", {
+	  enumerable: true,
+	  get: function get() {
+	    return _helpers.newHistory;
+	  }
+	});
+	Object.defineProperty(exports, "default", {
+	  enumerable: true,
+	  get: function get() {
+	    return _reducer["default"];
+	  }
+	});
+
+	var _actions = actions;
+
+	var _helpers = helpers;
+
+	var _reducer = _interopRequireDefault(reducer);
+
+	function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { "default": obj }; }
+} (lib));
+
+var undoable = /*@__PURE__*/getDefaultExportFromCjs(lib);
 
 const graph = (state = emptyGraph(), action) => {
     switch (action.type) {
@@ -5991,7 +6497,7 @@ const graph = (state = emptyGraph(), action) => {
 
 var graph$1 = undoable(graph, {
     filter: action => action.category === 'GRAPH',
-    groupBy: reduxUndo.exports.groupByActionTypes('MOVE_NODES')
+    groupBy: lib.groupByActionTypes('MOVE_NODES')
 });
 
 const allEntitiesSelected = (oldEntities, newEntities) => {
@@ -6068,8 +6574,8 @@ function selection(state = {
 
         case 'CLEAR_SELECTION':
         case 'DELETE_NODES_AND_RELATIONSHIPS':
-        case reduxUndo.exports.ActionTypes.UNDO:
-        case reduxUndo.exports.ActionTypes.REDO:
+        case lib.ActionTypes.UNDO:
+        case lib.ActionTypes.REDO:
             return {
                 editing: undefined,
                 entities: []
@@ -6422,7 +6928,7 @@ function selectionMarquee(state = null, action) {
 }
 
 // 手势
-const gestures = redux.exports.combineReducers({
+const gestures = combineReducers({
     dragToCreate: dragging,
     selectionMarquee
 });
@@ -6511,7 +7017,7 @@ function cachedImages(state = {}, action) {
     return state
 }
 
-const arrowsAppReducers = redux.exports.combineReducers({
+const arrowsAppReducers = combineReducers({
     // recentStorage,
     // storage,
     diagramName,
@@ -8094,10 +8600,10 @@ const middleware = [
 
 class StateController {
     constructor() {
-        this.store = redux.exports.createStore(
+        this.store = createStore(
             arrowsAppReducers,
             {},
-            redux.exports.applyMiddleware(thunk, ...middleware)
+            applyMiddleware(thunk, ...middleware)
         );
 
         this.instance = null;

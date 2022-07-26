@@ -1,6 +1,6 @@
 import {
     combineReducers
-} from '../library/redux'
+} from 'redux'
 // import recentStorage from "./recentStorage";
 // import storage from "./storage";
 import diagramName from "./diagramName";

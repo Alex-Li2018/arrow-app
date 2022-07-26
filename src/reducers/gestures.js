@@ -1,6 +1,6 @@
 import {
     combineReducers
-} from '../library/redux'
+} from 'redux'
 import dragToCreate from "./dragToCreate";
 import selectionMarquee from "./selectionMarquee";
 
