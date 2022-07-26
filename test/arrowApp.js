@@ -2359,7 +2359,7 @@
           this.radius = this.internalRadius + style('border-width');
           this.outsideComponentRadius = this.radius + style('node-margin');
           this.fitRadius = this.internalRadius - style('node-padding');
-          // 节点的背景色
+          // node background
           this.background = new NodeBackground(node.position, this.internalRadius, editing, style, imageCache);
           // todo ？？？
           const neighbourObstacles = neighbourPositions(node, graph).map(position => {
@@ -2379,8 +2379,11 @@
           const iconImage = style('node-icon-image');
           const iconPosition = style('icon-position');
           const hasIcon = !!iconImage;
+          // 标题
           const hasCaption = !!node.caption;
+          // 标记
           const hasLabels = node.labels.length > 0;
+          // 属性
           const hasProperties = Object.keys(node.properties).length > 0;
 
           const outsidePosition = style('outside-position');
@@ -8116,8 +8119,7 @@
           const self = this;
           function handleChange() {
               let previousValue = currentValue;
-              currentValue = self.observerData(self.store.getState());
-              console.log(previousValue, currentValue);
+              currentValue = self.observerData(previousValue, self.store.getState());
               callback && callback(currentValue);
           }
 
@@ -8126,12 +8128,12 @@
           return unsubscribe
       }
 
-      observerData(state) {
+      observerData(preState, state) {
           /* oberser gestures graph viewTransformation
               if gestures graph viewTransformation data changed 
               the view will rerender
           */
-          return {
+          const currentValue =  {
               visualGraph: getVisualGraph(state),
               backgroundImage: getBackgroundImage(state),
               selection: state.selection,
@@ -8141,6 +8143,22 @@
               canvasSize: computeCanvasSize(state.applicationLayout),
               viewTransformation: state.viewTransformation,
               storage: state.storage
+          };
+
+          if (!preState) return currentValue
+          
+          // for(let key in currentValue) {
+          //     currentValue[]
+          // }
+          
+      }
+
+      dispatchSelection(preValue, value) {
+          const preSelection = preValue.selection;
+          const selection = value.selection;
+
+          for(let key in preSelection) {
+              selection[key] = selection[key];
           }
       }
 

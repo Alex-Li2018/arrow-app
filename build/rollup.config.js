@@ -21,7 +21,7 @@ export default {
     input: './src/index.js',     // 必须
     output: {
         file,
-        format: 'umd',
+        format: 'esm',
         name: 'ArrowApp',
     },
     plugins
