@@ -8,6 +8,7 @@
   },
   "scripts": {
     "build:dev": "cross-env NODE_ENV=development rollup --config ./build/rollup.config.js",
+    "build:devesm": "cross-env NODE_ENV=development MOUDLE=esm rollup --config ./build/rollup.config.js",
     "build:pro": "cross-env NODE_ENV=production rollup --config ./build/rollup.config.js"
   },
   "repository": {

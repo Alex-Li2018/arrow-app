@@ -9,7 +9,7 @@ const plugins = [
     nodeResolve(),
     commonjs()
 ]
-let file = './dist/arrowApp.js'
+let file = process.env.MOUDLE === 'esm' ? './dist/arrowApp.esm.js' : './dist/arrowApp.js'
 
 if (process.env.NODE_ENV === 'production') {
     plugins.push(terser())
@@ -21,7 +21,7 @@ export default {
     input: './src/index.js',     // 必须
     output: {
         file,
-        format: 'esm',
+        format: process.env.MOUDLE === 'esm' ? 'esm' : 'umd',
         name: 'ArrowApp',
     },
     plugins
