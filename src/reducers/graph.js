@@ -28,7 +28,7 @@ import {
 } from "../model/styling";
 import undoable, {
     groupByActionTypes
-} from 'redux-undo';
+} from '../library/redux-undo/index';
 import {
     nodeSelected,
     relationshipSelected

@@ -1,8 +1,8 @@
 import { 
     createStore,
     applyMiddleware
-} from 'redux'
-import thunkMiddleware from 'redux-thunk'
+} from '../library/redux/index'
+import thunkMiddleware from '../library/redux-thunk/index'
 import reducer from '../reducers/index'
 import { viewportMiddleware } from "../middlewares/viewportMiddleware"
 // import {storageMiddleware} from "../middlewares/storageMiddleware";

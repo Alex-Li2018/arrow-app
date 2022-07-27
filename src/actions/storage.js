@@ -6,7 +6,7 @@ import {
 } from "../storage/googleDriveStorage";
 import {
     ActionCreators as UndoActionCreators
-} from 'redux-undo'
+} from '../library/redux-undo/index'
 
 export function newGoogleDriveDiagram() {
     return function(dispatch) {

@@ -1,6 +1,6 @@
 import {
     createSelector
-} from "reselect";
+} from "../library/reselect/index";
 import VisualNode from "../graphics/VisualNode";
 import ResolvedRelationship from "../graphics/ResolvedRelationship";
 import VisualGraph from "../graphics/VisualGraph";
