@@ -1,4 +1,3 @@
-import { getVisualGraph } from './selectors/index'
 import CanvasAdaptor from "./graphics/utils/CanvasAdaptor";
 import StateController from './stateController/index';
 import { initGraph } from './actions/graph'
