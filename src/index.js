@@ -30,42 +30,49 @@ const layerManager = (() => {
 
 export default class ArrowApp {
     constructor(domString, graph, options) {
-        this.canvas = document.getElementById(domString)
+        this.canvas = document.getElementById(domString);
         this.options = {
             width: '100%',
-            height: '100%'
-        }
+            height: '100%',
+            dataChange(p, c) {
+                // console.log('dataChange', p, c)
+            }
+        };
 
         // merge options
-        merge(this.options, options)
+        merge(this.options, options);
 
         // redux store
-        this.stateController = StateController.getInstance()
-        this.stateStore = this.stateController.store
+        this.stateController = StateController.getInstance();
+        this.stateStore = this.stateController.store;
 
         // dispatch initGraph event
-        this.stateStore.dispatch(initGraph(graph))
+        this.stateStore.dispatch(initGraph(graph));
         // dispatch windowResized
-        this.stateStore.dispatch(windowResized(this.options.width, this.options.height))
+        this.stateStore.dispatch(windowResized(this.options.width, this.options.height));
 
         // fit canvas
-        this.fitCanvasSize(this.canvas, this.options)
+        this.fitCanvasSize(this.canvas, this.options);
 
         // event listener
-        this.mouseHandler = new MouseHandler(this.canvas)
-        this.mouseHandler.setDispatch(this.stateStore.dispatch)
+        this.mouseHandler = new MouseHandler(this.canvas);
+        this.mouseHandler.setDispatch(this.stateStore.dispatch);
         
         // listen render
-        this.stateController.subscribeEvent(this.renderVisuals.bind(this))
+        const callback = []
+        callback.push(this.renderVisuals.bind(this))
+        callback.push(this.options.dataChange)
+
+        this.stateController.subscribeEvent(callback);
     }
 
     fitCanvasSize(canvas, {
         width, height
     }) {
-        canvas.width = width
-        canvas.height = height
-        canvas.style.width = width + 'px'
-        canvas.style.height = height + 'px'
+        canvas.width = width;
+        canvas.height = height;
+        canvas.style.width = width + 'px';
+        canvas.style.height = height + 'px';
 
         const context = canvas.getContext('2d');
 
@@ -74,20 +81,20 @@ export default class ArrowApp {
             context.mozBackingStorePixelRatio ||
             context.msBackingStorePixelRatio ||
             context.oBackingStorePixelRatio ||
-            context.backingStorePixelRatio || 1
-        const ratio = devicePixelRatio / backingStoreRatio
+            context.backingStorePixelRatio || 1;
+        const ratio = devicePixelRatio / backingStoreRatio;
 
         if (devicePixelRatio !== backingStoreRatio) {
-            canvas.width = width * ratio
-            canvas.height = height * ratio
+            canvas.width = width * ratio;
+            canvas.height = height * ratio;
 
-            canvas.style.width = width + 'px'
-            canvas.style.height = height + 'px'
+            canvas.style.width = width + 'px';
+            canvas.style.height = height + 'px';
 
             // now scale the context to counter
             // the fact that we've manually scaled
             // our canvas element
-            context.scale(ratio, ratio)
+            context.scale(ratio, ratio);
         }
 
         return ratio
@@ -105,23 +112,23 @@ export default class ArrowApp {
             toolboxes, 
             viewTransformation, 
             canvasSize 
-        } = state
+        } = state;
 
         const ctx = this.canvas.getContext('2d');
         ctx.clearRect(0, 0, canvasSize.width, canvasSize.height);
     
-        const visualGestures = new Gestures(visualGraph, gestures)
+        const visualGestures = new Gestures(visualGraph, gestures);
         // const visualGuides = new VisualGuides(visualGraph, guides)
     
-        layerManager.clear()
+        layerManager.clear();
 
         // layerManager.register('GUIDES ACTUAL POSITION', visualGuides.drawActualPosition.bind(visualGuides))
-        layerManager.register('GESTURES', visualGestures.draw.bind(visualGestures))
-        layerManager.register('GRAPH', visualGraph.draw.bind(visualGraph))
+        layerManager.register('GESTURES', visualGestures.draw.bind(visualGestures));
+        layerManager.register('GRAPH', visualGraph.draw.bind(visualGraph));
     
         layerManager.renderAll(new CanvasAdaptor(ctx), {
             canvasSize,
             viewTransformation
-        })
+        });
     }
 }

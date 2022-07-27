@@ -41,17 +41,19 @@ export default class StateController {
     }
 
     // observe data change
-    subscribeEvent(callback) {
-        let currentValue
-        const self = this
+    subscribeEvent(callbackArr) {
+        let currentValue;
+        const self = this;
         function handleChange() {
-            let previousValue = currentValue
-            currentValue = self.observerData(previousValue, self.store.getState())
-            callback && callback(currentValue)
+            let previousValue = currentValue;
+            currentValue = self.observerData(previousValue, self.store.getState());
+            callbackArr.length && callbackArr.forEach(callback => {
+                callback && callback(currentValue, previousValue);
+            })
         }
 
-        handleChange()
-        const unsubscribe = self.store.subscribe(handleChange)
+        handleChange();
+        const unsubscribe = self.store.subscribe(handleChange);
         return unsubscribe
     }
 
@@ -72,12 +74,7 @@ export default class StateController {
             storage: state.storage
         }
 
-        return currentValue
-        
-        // for(let key in currentValue) {
-        //     currentValue[]
-        // }
-        
+        return currentValue    
     }
 
     dispatchSelection(preValue, value) {

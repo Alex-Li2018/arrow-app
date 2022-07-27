@@ -8414,13 +8414,15 @@ class StateController {
     }
 
     // observe data change
-    subscribeEvent(callback) {
+    subscribeEvent(callbackArr) {
         let currentValue;
         const self = this;
         function handleChange() {
             let previousValue = currentValue;
             currentValue = self.observerData(previousValue, self.store.getState());
-            callback && callback(currentValue);
+            callbackArr.length && callbackArr.forEach(callback => {
+                callback && callback(currentValue, previousValue);
+            });
         }
 
         handleChange();
@@ -8445,12 +8447,7 @@ class StateController {
             storage: state.storage
         };
 
-        return currentValue
-        
-        // for(let key in currentValue) {
-        //     currentValue[]
-        // }
-        
+        return currentValue    
     }
 
     dispatchSelection(preValue, value) {
@@ -8730,7 +8727,10 @@ class ArrowApp {
         this.canvas = document.getElementById(domString);
         this.options = {
             width: '100%',
-            height: '100%'
+            height: '100%',
+            dataChange(p, c) {
+                // console.log('dataChange', p, c)
+            }
         };
 
         // merge options
@@ -8753,7 +8753,11 @@ class ArrowApp {
         this.mouseHandler.setDispatch(this.stateStore.dispatch);
         
         // listen render
-        this.stateController.subscribeEvent(this.renderVisuals.bind(this));
+        const callback = [];
+        callback.push(this.renderVisuals.bind(this));
+        callback.push(this.options.dataChange);
+
+        this.stateController.subscribeEvent(callback);
     }
 
     fitCanvasSize(canvas, {
