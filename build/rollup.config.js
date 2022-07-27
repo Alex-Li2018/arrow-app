@@ -3,11 +3,17 @@ import scss from 'rollup-plugin-scss'
 import { terser } from "rollup-plugin-terser";
 import { nodeResolve } from '@rollup/plugin-node-resolve';
 import commonjs from '@rollup/plugin-commonjs';
+import injectProcessEnv from 'rollup-plugin-inject-process-env';
 
 const plugins = [
     scss(),
+    injectProcessEnv({ 
+        NODE_ENV: process.env.NODE_ENV,
+        SOME_OBJECT: {},
+        UNUSED: null
+    }),
+    commonjs(),
     nodeResolve(),
-    commonjs()
 ]
 let file = process.env.MOUDLE === 'esm' ? './dist/arrowApp.esm.js' : './dist/arrowApp.js'
 
