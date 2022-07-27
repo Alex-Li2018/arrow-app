@@ -8429,8 +8429,8 @@
                 callback && callback(currentValue);
             }
 
-            const unsubscribe = self.store.subscribe(handleChange);
             handleChange();
+            const unsubscribe = self.store.subscribe(handleChange);
             return unsubscribe
         }
 
@@ -8451,7 +8451,7 @@
                 storage: state.storage
             };
 
-            if (!preState) return currentValue
+            return currentValue
             
             // for(let key in currentValue) {
             //     currentValue[]
