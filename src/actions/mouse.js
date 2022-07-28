@@ -49,22 +49,18 @@ export const wheel = (canvasPosition, vector, ctrlKey) => {
         const currentScale = state.viewTransformation.scale
         const canvasSize = subtractPadding(computeCanvasSize(state.applicationLayout))
 
-        if (ctrlKey) {
-            const graphPosition = toGraphPosition(state, canvasPosition)
-            const fitWidth = canvasSize.width / boundingBox.width
-            const fitHeight = canvasSize.height / boundingBox.height
-            const minScale = Math.min(1, fitWidth, fitHeight)
-            const scale = Math.max(currentScale * (100 - vector.dy) / 100, minScale)
-            const rawOffset = canvasPosition.vectorFrom(graphPosition.scale(scale))
-            const constrainedOffset = constrainScroll(boundingBox, scale, rawOffset, canvasSize)
-            const shouldCenter = scale <= fitHeight && scale <= fitWidth && vector.dy > 0
-            const offset = shouldCenter ? moveTowardCenter(minScale, constrainedOffset, boundingBox, canvasSize) : constrainedOffset
-            dispatch(adjustViewport(scale, offset.dx, offset.dy))
-        } else {
-            const rawOffset = state.viewTransformation.offset.plus(vector.scale(currentScale).invert())
-            const offset = constrainScroll(boundingBox, currentScale, rawOffset, canvasSize)
-            dispatch(adjustViewport(currentScale, offset.dx, offset.dy))
-        }
+        const graphPosition = toGraphPosition(state, canvasPosition)
+        const fitWidth = canvasSize.width / boundingBox.width
+        const fitHeight = canvasSize.height / boundingBox.height
+        // 最小的缩放比例
+        const minScale = Math.min(1, fitWidth, fitHeight)
+        const scaleFator = vector.dy ? currentScale * 100 / (100 + vector.dy)  : currentScale * (100 - vector.dy) / 100
+        // 最大的缩放比例 目的 当缩放到最小适配时， 缩放不变化
+        const scale = Math.max(scaleFator, minScale)
+        const rawOffset = canvasPosition.vectorFrom(graphPosition.scale(scale))
+        // 约束偏移 滚动缩放时 中心点变化了 需要平移
+        const constrainedOffset = constrainScroll(boundingBox, scale, rawOffset, canvasSize)
+        dispatch(adjustViewport(scale, constrainedOffset.dx, constrainedOffset.dy))
     }
 }
 

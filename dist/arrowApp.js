@@ -7511,7 +7511,6 @@
 
     const toGraphPosition = (state, canvasPosition) => state.viewTransformation.inverse(canvasPosition);
 
-    // 鼠标滚轮
     const wheel = (canvasPosition, vector, ctrlKey) => {
         return function(dispatch, getState) {
             const state = getState();
@@ -7519,50 +7518,19 @@
             const currentScale = state.viewTransformation.scale;
             const canvasSize = subtractPadding(computeCanvasSize(state.applicationLayout));
 
-            // if (ctrlKey) {
-                const graphPosition = toGraphPosition(state, canvasPosition);
-                const fitWidth = canvasSize.width / boundingBox.width;
-                const fitHeight = canvasSize.height / boundingBox.height;
-                const minScale = Math.min(1, fitWidth, fitHeight);
-                const scale = Math.max(currentScale * (100 - vector.dy) / 100, minScale);
-                const rawOffset = canvasPosition.vectorFrom(graphPosition.scale(scale));
-                const constrainedOffset = constrainScroll(boundingBox, scale, rawOffset, canvasSize);
-                const shouldCenter = scale <= fitHeight && scale <= fitWidth && vector.dy > 0;
-                const offset = shouldCenter ? moveTowardCenter(minScale, constrainedOffset, boundingBox, canvasSize) : constrainedOffset;
-                dispatch(adjustViewport(scale, offset.dx, offset.dy));
-            // } else {
-            //     const rawOffset = state.viewTransformation.offset.plus(vector.scale(currentScale).invert())
-            //     const offset = constrainScroll(boundingBox, currentScale, rawOffset, canvasSize)
-            //     dispatch(adjustViewport(currentScale, offset.dx, offset.dy))
-            // }
+            const graphPosition = toGraphPosition(state, canvasPosition);
+            const fitWidth = canvasSize.width / boundingBox.width;
+            const fitHeight = canvasSize.height / boundingBox.height;
+            // 最小的缩放比例
+            const minScale = Math.min(1, fitWidth, fitHeight);
+            const scaleFator = vector.dy ? currentScale * 100 / (100 + vector.dy)  : currentScale * (100 - vector.dy) / 100;
+            // 最大的缩放比例 目的 当缩放到最小适配时， 缩放不变化
+            const scale = Math.max(scaleFator, minScale);
+            const rawOffset = canvasPosition.vectorFrom(graphPosition.scale(scale));
+            // 约束偏移 滚动缩放时 中心点变化了 需要平移
+            const constrainedOffset = constrainScroll(boundingBox, scale, rawOffset, canvasSize);
+            dispatch(adjustViewport(scale, constrainedOffset.dx, constrainedOffset.dy));
         }
-    };
-
-    const moveTowardCenter = (minScale, offset, boundingBox, canvasSize) => {
-        const dimensions = [{
-                component: 'dx',
-                min: 'left',
-                max: 'right',
-                extent: 'width'
-            },
-            {
-                component: 'dy',
-                min: 'top',
-                max: 'bottom',
-                extent: 'height'
-            }
-        ];
-
-        const [dx, dy] = dimensions.map(d => {
-            const currentDisplacement = offset[d.component];
-            const centreDisplacement = canvasPadding + canvasSize[d.extent] / 2 - (boundingBox[d.max] + boundingBox[d.min]) * minScale / 2;
-            const difference = centreDisplacement - currentDisplacement;
-            if (Math.abs(difference) > 1) {
-                return currentDisplacement + difference * 0.1
-            }
-            return currentDisplacement
-        });
-        return new Vector(dx, dy)
     };
 
     const constrainScroll = (boundingBox, scale, effectiveOffset, canvasSize) => {
@@ -8510,9 +8478,13 @@
             evt.preventDefault();
         }
 
+        // 计算
         canvasPosition(event) {
+            // getBoundingClientRect用于获得页面中某个元素的左，上，右和下分别相对浏览器视窗的位置。
+            // getBoundingClientRect是DOM元素到浏览器可视范围的距离（不包含文档卷起的部分）
             let rect = this.canvas.getBoundingClientRect();
             // TODO Origin of right / bottom ISSUE ???
+            // canvas viewPort origin
             return new Point(
                 event.clientX - rect.left,
                 event.clientY - rect.top
