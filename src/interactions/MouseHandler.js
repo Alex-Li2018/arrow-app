@@ -73,9 +73,13 @@ export default class MouseHandler {
         evt.preventDefault()
     }
 
+    // 计算
     canvasPosition(event) {
+        // getBoundingClientRect用于获得页面中某个元素的左，上，右和下分别相对浏览器视窗的位置。
+        // getBoundingClientRect是DOM元素到浏览器可视范围的距离（不包含文档卷起的部分）
         let rect = this.canvas.getBoundingClientRect()
         // TODO Origin of right / bottom ISSUE ???
+        // canvas viewPort origin
         return new Point(
             event.clientX - rect.left,
             event.clientY - rect.top

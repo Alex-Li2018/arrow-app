@@ -1,4 +1,4 @@
-export const canvasPadding = 50
+export const canvasPadding = 10
 
 export const computeCanvasSize = (applicationLayout) => {
     const {

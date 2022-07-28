@@ -1,4 +1,5 @@
-export const defaultNodeRadius = 50
+// 默认的node半径
+export const defaultNodeRadius = 30
 export const defaultRelationshipLength = 200
 export const ringMargin = 10
 export const relationshipHitTolerance = 20

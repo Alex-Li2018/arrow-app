@@ -14,7 +14,7 @@ import gestures from "./gestures";
 import actionMemos from "./actionMemos";
 // import applicationDialogs from "./applicationDialogs";
 import gangs from './gangs'
-import features from './features'
+// import features from './features'
 import cachedImages from "./cachedImages";
 
 const arrowsAppReducers = combineReducers({
@@ -31,7 +31,7 @@ const arrowsAppReducers = combineReducers({
     actionMemos,
     // applicationDialogs,
     gangs,
-    features,
+    // features,
     cachedImages
 })
 

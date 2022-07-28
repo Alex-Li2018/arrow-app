@@ -987,7 +987,8 @@
         }
     };
 
-    const defaultNodeRadius = 50;
+    // 默认的node半径
+    const defaultNodeRadius = 30;
     const ringMargin = 10;
     const relationshipHitTolerance = 20;
     const defaultFontSize = 50;
@@ -2195,6 +2196,7 @@
 
     const graph = (state = emptyGraph(), action) => {
         switch (action.type) {
+            // 初始化图
             case 'INIT_GRAPH':
                 {
                     const newNodes = action.graph.nodes.map(item => ({
@@ -3042,9 +3044,9 @@
         }
     }
 
-    const initialState$1 = [];
+    const initialState = [];
 
-    var gangs = (state = initialState$1, action) => {
+    var gangs = (state = initialState, action) => {
         switch (action.type) {
             case 'CREATE_CLUSTER':
                 return state.concat([{
@@ -3094,14 +3096,6 @@
         }
     };
 
-    const initialState = {
-        "storage.GOOGLE_DRIVE": true,
-        "storage.LOCAL_STORAGE": true,
-        "storage.DATABASE": false,
-    };
-
-    var features = (state = initialState, action) => initialState;
-
     function cachedImages(state = {}, action) {
         if (action.type === 'IMAGE_EVENT') {
             return {
@@ -3127,7 +3121,7 @@
         actionMemos,
         // applicationDialogs,
         gangs,
-        features,
+        // features,
         cachedImages
     });
 
@@ -7496,7 +7490,7 @@
         }, [])
     };
 
-    const canvasPadding = 50;
+    const canvasPadding = 10;
 
     const computeCanvasSize = (applicationLayout) => {
         const {
@@ -7517,6 +7511,7 @@
 
     const toGraphPosition = (state, canvasPosition) => state.viewTransformation.inverse(canvasPosition);
 
+    // 鼠标滚轮
     const wheel = (canvasPosition, vector, ctrlKey) => {
         return function(dispatch, getState) {
             const state = getState();
@@ -7524,7 +7519,7 @@
             const currentScale = state.viewTransformation.scale;
             const canvasSize = subtractPadding(computeCanvasSize(state.applicationLayout));
 
-            if (ctrlKey) {
+            // if (ctrlKey) {
                 const graphPosition = toGraphPosition(state, canvasPosition);
                 const fitWidth = canvasSize.width / boundingBox.width;
                 const fitHeight = canvasSize.height / boundingBox.height;
@@ -7535,11 +7530,11 @@
                 const shouldCenter = scale <= fitHeight && scale <= fitWidth && vector.dy > 0;
                 const offset = shouldCenter ? moveTowardCenter(minScale, constrainedOffset, boundingBox, canvasSize) : constrainedOffset;
                 dispatch(adjustViewport(scale, offset.dx, offset.dy));
-            } else {
-                const rawOffset = state.viewTransformation.offset.plus(vector.scale(currentScale).invert());
-                const offset = constrainScroll(boundingBox, currentScale, rawOffset, canvasSize);
-                dispatch(adjustViewport(currentScale, offset.dx, offset.dy));
-            }
+            // } else {
+            //     const rawOffset = state.viewTransformation.offset.plus(vector.scale(currentScale).invert())
+            //     const offset = constrainScroll(boundingBox, currentScale, rawOffset, canvasSize)
+            //     dispatch(adjustViewport(currentScale, offset.dx, offset.dy))
+            // }
         }
     };
 
@@ -8195,6 +8190,47 @@
         }
     };
 
+    const calculateTransformationTable = (currentViewTransformation, targetViewTransformation, totalSteps) => {
+        let lastScale = currentViewTransformation.scale;
+        const targetScale = targetViewTransformation.scale;
+        const scaleByStep = (targetScale - lastScale) / totalSteps;
+
+        let lastPan = {
+            dx: currentViewTransformation.offset.dx,
+            dy: currentViewTransformation.offset.dy
+        };
+        const panByStep = {
+            dx: (targetViewTransformation.offset.dx - lastPan.dx) / totalSteps,
+            dy: (targetViewTransformation.offset.dy - lastPan.dy) / totalSteps
+        };
+
+        const scaleTable = [];
+        const panningTable = [];
+        let stepIndex = 0;
+
+        while (stepIndex < totalSteps - 1) {
+            lastScale += scaleByStep;
+            lastPan = {
+                dx: lastPan.dx + panByStep.dx,
+                dy: lastPan.dy + panByStep.dy
+            };
+
+            scaleTable.push(lastScale);
+            panningTable.push(lastPan);
+
+            stepIndex++;
+        }
+
+        // because of decimal figures does not sum up to exact number
+        scaleTable.push(targetViewTransformation.scale);
+        panningTable.push(targetViewTransformation.offset);
+
+        return {
+            scaleTable,
+            panningTable
+        }
+    };
+
     const viewportMiddleware = store => next => action => {
         const result = next(action);
 
@@ -8280,47 +8316,6 @@
         return result
     };
 
-    const calculateTransformationTable = (currentViewTransformation, targetViewTransformation, totalSteps) => {
-        let lastScale = currentViewTransformation.scale;
-        const targetScale = targetViewTransformation.scale;
-        const scaleByStep = (targetScale - lastScale) / totalSteps;
-
-        let lastPan = {
-            dx: currentViewTransformation.offset.dx,
-            dy: currentViewTransformation.offset.dy
-        };
-        const panByStep = {
-            dx: (targetViewTransformation.offset.dx - lastPan.dx) / totalSteps,
-            dy: (targetViewTransformation.offset.dy - lastPan.dy) / totalSteps
-        };
-
-        const scaleTable = [];
-        const panningTable = [];
-        let stepIndex = 0;
-
-        while (stepIndex < totalSteps - 1) {
-            lastScale += scaleByStep;
-            lastPan = {
-                dx: lastPan.dx + panByStep.dx,
-                dy: lastPan.dy + panByStep.dy
-            };
-
-            scaleTable.push(lastScale);
-            panningTable.push(lastPan);
-
-            stepIndex++;
-        }
-
-        // because of decimal figures does not sum up to exact number
-        scaleTable.push(targetViewTransformation.scale);
-        panningTable.push(targetViewTransformation.offset);
-
-        return {
-            scaleTable,
-            panningTable
-        }
-    };
-
     const imageEvent = (imageUrl, cachedImage) => ({
         type: 'IMAGE_EVENT',
         imageUrl,
@@ -8371,11 +8366,8 @@
         }
     };
 
-    // 执行顺讯 windowLocationHashMiddleware -> viewportMiddleware -> imageCacheMiddleware
+    // 执行顺讯 viewportMiddleware -> imageCacheMiddleware
     const middleware = [
-        // recentStorageMiddleware,
-        // storageMiddleware,
-        // windowLocationHashMiddleware,
         viewportMiddleware,
         imageCacheMiddleware
     ];
@@ -8740,6 +8732,9 @@
             callback.push(this.options.dataChange);
 
             this.stateController.subscribeEvent(callback);
+
+            // 外部句柄 触发事件
+            this.dispatch = this.stateStore.dispatch;
         }
 
         fitCanvasSize(canvas, {

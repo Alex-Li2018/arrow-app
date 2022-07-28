@@ -64,6 +64,9 @@ export default class ArrowApp {
         callback.push(this.options.dataChange)
 
         this.stateController.subscribeEvent(callback);
+
+        // 外部句柄 触发事件
+        this.dispatch = this.stateStore.dispatch
     }
 
     fitCanvasSize(canvas, {
