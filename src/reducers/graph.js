@@ -37,6 +37,7 @@ import { Point } from '../model/Point'
 
 const graph = (state = emptyGraph(), action) => {
     switch (action.type) {
+        // 初始化图
         case 'INIT_GRAPH':
             {
                 const newNodes = action.graph.nodes.map(item => ({

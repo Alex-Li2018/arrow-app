@@ -8321,30 +8321,6 @@
         }
     };
 
-    const windowLocationHashMiddleware = store => next => action => {
-        const oldStorage = store.getState().storage;
-        const result = next(action);
-        const newStorage = store.getState().storage;
-
-        if (oldStorage !== newStorage && newStorage.status === 'READY') {
-            switch (newStorage.mode) {
-                case 'GOOGLE_DRIVE':
-                    if (newStorage.fileId) {
-                        window.location.hash = `#/googledrive/ids=${newStorage.fileId}`;
-                    }
-                    break
-                case 'DATABASE':
-                    window.location.hash = `#/neo4j`;
-                    break
-                case 'LOCAL_STORAGE':
-                    window.location.hash = `#/local/id=${newStorage.fileId}`;
-                    break
-            }
-        }
-
-        return result
-    };
-
     const imageEvent = (imageUrl, cachedImage) => ({
         type: 'IMAGE_EVENT',
         imageUrl,
@@ -8399,7 +8375,7 @@
     const middleware = [
         // recentStorageMiddleware,
         // storageMiddleware,
-        windowLocationHashMiddleware,
+        // windowLocationHashMiddleware,
         viewportMiddleware,
         imageCacheMiddleware
     ];
@@ -8803,13 +8779,8 @@
         // 可视化渲染
         renderVisuals(state) {
             const { 
-                visualGraph, 
-                backgroundImage, 
-                selection, 
+                visualGraph,
                 gestures, 
-                guides, 
-                handles, 
-                toolboxes, 
                 viewTransformation, 
                 canvasSize 
             } = state;

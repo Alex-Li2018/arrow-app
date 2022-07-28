@@ -79,6 +79,47 @@ export const calculateViewportTranslation = (visualGraph, canvasSize) => {
     }
 }
 
+const calculateTransformationTable = (currentViewTransformation, targetViewTransformation, totalSteps) => {
+    let lastScale = currentViewTransformation.scale
+    const targetScale = targetViewTransformation.scale
+    const scaleByStep = (targetScale - lastScale) / totalSteps
+
+    let lastPan = {
+        dx: currentViewTransformation.offset.dx,
+        dy: currentViewTransformation.offset.dy
+    }
+    const panByStep = {
+        dx: (targetViewTransformation.offset.dx - lastPan.dx) / totalSteps,
+        dy: (targetViewTransformation.offset.dy - lastPan.dy) / totalSteps
+    }
+
+    const scaleTable = []
+    const panningTable = []
+    let stepIndex = 0
+
+    while (stepIndex < totalSteps - 1) {
+        lastScale += scaleByStep
+        lastPan = {
+            dx: lastPan.dx + panByStep.dx,
+            dy: lastPan.dy + panByStep.dy
+        }
+
+        scaleTable.push(lastScale)
+        panningTable.push(lastPan)
+
+        stepIndex++
+    }
+
+    // because of decimal figures does not sum up to exact number
+    scaleTable.push(targetViewTransformation.scale)
+    panningTable.push(targetViewTransformation.offset)
+
+    return {
+        scaleTable,
+        panningTable
+    }
+}
+
 export const viewportMiddleware = store => next => action => {
     const result = next(action)
 
@@ -162,45 +203,4 @@ export const viewportMiddleware = store => next => action => {
     }
 
     return result
-}
-
-const calculateTransformationTable = (currentViewTransformation, targetViewTransformation, totalSteps) => {
-    let lastScale = currentViewTransformation.scale
-    const targetScale = targetViewTransformation.scale
-    const scaleByStep = (targetScale - lastScale) / totalSteps
-
-    let lastPan = {
-        dx: currentViewTransformation.offset.dx,
-        dy: currentViewTransformation.offset.dy
-    }
-    const panByStep = {
-        dx: (targetViewTransformation.offset.dx - lastPan.dx) / totalSteps,
-        dy: (targetViewTransformation.offset.dy - lastPan.dy) / totalSteps
-    }
-
-    const scaleTable = []
-    const panningTable = []
-    let stepIndex = 0
-
-    while (stepIndex < totalSteps - 1) {
-        lastScale += scaleByStep
-        lastPan = {
-            dx: lastPan.dx + panByStep.dx,
-            dy: lastPan.dy + panByStep.dy
-        }
-
-        scaleTable.push(lastScale)
-        panningTable.push(lastPan)
-
-        stepIndex++
-    }
-
-    // because of decimal figures does not sum up to exact number
-    scaleTable.push(targetViewTransformation.scale)
-    panningTable.push(targetViewTransformation.offset)
-
-    return {
-        scaleTable,
-        panningTable
-    }
 }

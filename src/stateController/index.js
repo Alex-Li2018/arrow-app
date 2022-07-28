@@ -5,9 +5,6 @@ import {
 import thunkMiddleware from '../library/redux-thunk/index'
 import reducer from '../reducers/index'
 import { viewportMiddleware } from "../middlewares/viewportMiddleware"
-// import {storageMiddleware} from "../middlewares/storageMiddleware";
-import { windowLocationHashMiddleware } from "../middlewares/windowLocationHashMiddleware";
-// import {initRecentStorage, recentStorageMiddleware} from "../middlewares/recentStorageMiddleware";
 import { imageCacheMiddleware } from "../middlewares/imageCacheMiddleware";
 import { 
     getVisualGraph, 
@@ -16,11 +13,8 @@ import {
 } from '../selectors/index'
 import { computeCanvasSize } from "../model/applicationLayout";
 
-// 执行顺讯 windowLocationHashMiddleware -> viewportMiddleware -> imageCacheMiddleware
+// 执行顺讯 viewportMiddleware -> imageCacheMiddleware
 const middleware = [
-    // recentStorageMiddleware,
-    // storageMiddleware,
-    windowLocationHashMiddleware,
     viewportMiddleware,
     imageCacheMiddleware
 ]
