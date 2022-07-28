@@ -103,13 +103,8 @@ export default class ArrowApp {
     // 可视化渲染
     renderVisuals(state) {
         const { 
-            visualGraph, 
-            backgroundImage, 
-            selection, 
+            visualGraph,
             gestures, 
-            guides, 
-            handles, 
-            toolboxes, 
             viewTransformation, 
             canvasSize 
         } = state;
