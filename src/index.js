@@ -67,6 +67,7 @@ export default class ArrowApp {
         const callback = []
         callback.push(this.renderVisuals.bind(this))
         callback.push(this.options.dataChange)
+        callback.push(this.canvasChangeaHandler.bind(this))
 
         this.stateController.subscribeEvent(callback);
 
@@ -74,15 +75,15 @@ export default class ArrowApp {
         this.dispatch = this.stateStore.dispatch
     }
 
-    fitCanvasSize(canvas, {
+    fitCanvasSize({
         width, height
     }) {
-        canvas.width = width;
-        canvas.height = height;
-        canvas.style.width = width + 'px';
-        canvas.style.height = height + 'px';
+        this.canvas.width = width;
+        this.canvas.height = height;
+        this.canvas.style.width = width + 'px';
+        this.canvas.style.height = height + 'px';
 
-        const context = canvas.getContext('2d');
+        const context = this.canvas.getContext('2d');
 
         const devicePixelRatio = window.devicePixelRatio || 1;
         const backingStoreRatio = context.webkitBackingStorePixelRatio ||
@@ -93,11 +94,11 @@ export default class ArrowApp {
         const ratio = devicePixelRatio / backingStoreRatio;
 
         if (devicePixelRatio !== backingStoreRatio) {
-            canvas.width = width * ratio;
-            canvas.height = height * ratio;
+            this.canvas.width = width * ratio;
+            this.canvas.height = height * ratio;
 
-            canvas.style.width = width + 'px';
-            canvas.style.height = height + 'px';
+            this.canvas.style.width = width + 'px';
+            this.canvas.style.height = height + 'px';
 
             // now scale the context to counter
             // the fact that we've manually scaled
@@ -106,6 +107,20 @@ export default class ArrowApp {
         }
 
         return ratio
+    }
+
+    canvasChangeaHandler(oldVal, newVal) {
+        const {
+            canvasSize: oldSize
+        } = oldVal
+
+        const {
+            canvasSize
+        } = newVal
+
+        if ((oldSize.width !== canvasSize.width) || (oldSize.height !== canvasSize.height)) {
+            this.fitCanvasSize()
+        }
     }
 
     // 可视化渲染
