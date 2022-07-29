@@ -4,6 +4,7 @@ import { initGraph } from './actions/graph'
 import { windowResized } from "./actions/applicationLayout";
 import MouseHandler from "./interactions/MouseHandler"
 import Gestures from "./graphics/Gestures";
+import * as userEvent from './exportUserEvent'
 
 function merge(target, source) {
     Object.keys(source).forEach((property) => {
@@ -34,13 +35,17 @@ export default class ArrowApp {
         this.options = {
             width: '100%',
             height: '100%',
+            // 数据变化
             dataChange(p, c) {
                 // console.log('dataChange', p, c)
-            }
+            },
         };
 
         // merge options
         merge(this.options, options);
+
+        // userEvent
+        this.userEvent = userEvent
 
         // redux store
         this.stateController = StateController.getInstance();

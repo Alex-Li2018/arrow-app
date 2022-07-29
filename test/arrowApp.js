@@ -989,6 +989,7 @@
 
     // 默认的node半径
     const defaultNodeRadius = 30;
+    const defaultRelationshipLength = 200;
     const ringMargin = 10;
     const relationshipHitTolerance = 20;
     const defaultFontSize = 50;
@@ -7523,7 +7524,7 @@
             const fitHeight = canvasSize.height / boundingBox.height;
             // 最小的缩放比例
             const minScale = Math.min(1, fitWidth, fitHeight);
-            const scaleFator = vector.dy ? currentScale * 100 / (100 + vector.dy)  : currentScale * (100 - vector.dy) / 100;
+            const scaleFator = vector.dy > 0 ? currentScale * 100 / (100 + vector.dy)  : currentScale * (100 - vector.dy) / 100;
             // 最大的缩放比例 目的 当缩放到最小适配时， 缩放不变化
             const scale = Math.max(scaleFator, minScale);
             const rawOffset = canvasPosition.vectorFrom(graphPosition.scale(scale));
@@ -7793,6 +7794,36 @@
         type: 'INIT_GRAPH',
         graph
     });
+
+    const createNode = () => (dispatch, getState) => {
+        let newNodePosition = new Point(0, 0);
+        const graph = getPresentGraph(getState());
+        if (graph.nodes.length > 0) {
+            const ranges = ['x', 'y'].map(dimension => {
+                const coordinates = graph.nodes.map(node => node.position[dimension]);
+                const min = Math.min(...coordinates);
+                const max = Math.max(...coordinates);
+                const spread = max - min;
+                return {
+                    dimension,
+                    min,
+                    max,
+                    spread
+                }
+            }).sort((a, b) => b.spread - a.spread);
+            newNodePosition[ranges[0].dimension] = ranges[0].min;
+            newNodePosition[ranges[1].dimension] = ranges[1].max + defaultRelationshipLength + defaultNodeRadius * 2;
+        }
+
+        dispatch({
+            category: 'GRAPH',
+            type: 'CREATE_NODE',
+            newNodeId: nextAvailableId(getPresentGraph(getState()).nodes),
+            newNodePosition,
+            caption: '',
+            style: {}
+        });
+    };
 
     const createNodesAndRelationships = (sourceNodeIds, targetNodeDisplacement) => (dispatch, getState) => {
         const graph = getPresentGraph(getState());
@@ -8100,6 +8131,13 @@
             nodePositions
         }
     };
+
+    const deleteNodesAndRelationships = (nodeIdMap, relationshipIdMap) => ({
+        category: 'GRAPH',
+        type: 'DELETE_NODES_AND_RELATIONSHIPS',
+        nodeIdMap,
+        relationshipIdMap
+    });
 
     const observedActionTypes = [
         'NEW_GOOGLE_DRIVE_DIAGRAM',
@@ -8645,6 +8683,15 @@
         }
     }
 
+    const USER_CREATE_NODE = createNode;
+    const USER_DELETE_NODES_AND_RELATIONSHIPS = deleteNodesAndRelationships;
+
+    var userEvent = /*#__PURE__*/Object.freeze({
+        __proto__: null,
+        USER_CREATE_NODE: USER_CREATE_NODE,
+        USER_DELETE_NODES_AND_RELATIONSHIPS: USER_DELETE_NODES_AND_RELATIONSHIPS
+    });
+
     function merge(target, source) {
         Object.keys(source).forEach((property) => {
             target[property] = source[property];
@@ -8674,13 +8721,17 @@
             this.options = {
                 width: '100%',
                 height: '100%',
+                // 数据变化
                 dataChange(p, c) {
                     // console.log('dataChange', p, c)
-                }
+                },
             };
 
             // merge options
             merge(this.options, options);
+
+            // userEvent
+            this.userEvent = userEvent;
 
             // redux store
             this.stateController = StateController.getInstance();
