@@ -54,7 +54,7 @@ export const wheel = (canvasPosition, vector, ctrlKey) => {
         const fitHeight = canvasSize.height / boundingBox.height
         // 最小的缩放比例
         const minScale = Math.min(1, fitWidth, fitHeight)
-        const scaleFator = vector.dy ? currentScale * 100 / (100 + vector.dy)  : currentScale * (100 - vector.dy) / 100
+        const scaleFator = vector.dy > 0 ? currentScale * 100 / (100 + vector.dy)  : currentScale * (100 - vector.dy) / 100
         // 最大的缩放比例 目的 当缩放到最小适配时， 缩放不变化
         const scale = Math.max(scaleFator, minScale)
         const rawOffset = canvasPosition.vectorFrom(graphPosition.scale(scale))
