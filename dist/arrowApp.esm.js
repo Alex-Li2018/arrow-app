@@ -8713,11 +8713,13 @@ class Gestures {
 
 const USER_CREATE_NODE = createNode;
 const USER_DELETE_NODES_AND_RELATIONSHIPS = deleteSelection;
+const USER_WINDOW_RESIZED = windowResized;
 
 var userEvent = /*#__PURE__*/Object.freeze({
     __proto__: null,
     USER_CREATE_NODE: USER_CREATE_NODE,
-    USER_DELETE_NODES_AND_RELATIONSHIPS: USER_DELETE_NODES_AND_RELATIONSHIPS
+    USER_DELETE_NODES_AND_RELATIONSHIPS: USER_DELETE_NODES_AND_RELATIONSHIPS,
+    USER_WINDOW_RESIZED: USER_WINDOW_RESIZED
 });
 
 function merge(target, source) {
