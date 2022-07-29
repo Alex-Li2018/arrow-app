@@ -2167,6 +2167,14 @@ const selectedNodeIds = (selection) => {
     return selection.entities.filter(entity => entity.entityType === 'node').map(entity => entity.id)
 };
 
+const selectedNodeIdMap = (selection) => {
+    const idMap = {};
+    selection.entities.filter(entity => entity.entityType === 'node').forEach(entity => {
+        idMap[entity.id] = true;
+    });
+    return idMap
+};
+
 const nodeSelected = (selection, nodeId) => {
     return selection.entities.some(entity =>
         entity.entityType === 'node' && entity.id === nodeId
@@ -2176,6 +2184,14 @@ const nodeSelected = (selection, nodeId) => {
 const nodeEditing = (selection, nodeId) => {
     return selection.editing &&
         selection.editing.entityType === 'node' && selection.editing.id === nodeId
+};
+
+const selectedRelationshipIdMap = (selection) => {
+    const idMap = {};
+    selection.entities.filter(entity => entity.entityType === 'relationship').forEach(entity => {
+        idMap[entity.id] = true;
+    });
+    return idMap
 };
 
 const relationshipSelected = (selection, relationshipId) => {
@@ -8133,6 +8149,24 @@ const deleteNodesAndRelationships = (nodeIdMap, relationshipIdMap) => ({
     relationshipIdMap
 });
 
+const deleteSelection = () => {
+    return function(dispatch, getState) {
+        const selection = getState().selection;
+        const relationships = getPresentGraph(getState()).relationships;
+
+        const nodeIdMap = selectedNodeIdMap(selection);
+        const relationshipIdMap = selectedRelationshipIdMap(selection);
+
+        relationships.forEach(relationship => {
+            if (!relationshipIdMap[relationship.id] && (nodeIdMap[relationship.fromId] || nodeIdMap[relationship.toId])) {
+                relationshipIdMap[relationship.id] = true;
+            }
+        });
+
+        dispatch(deleteNodesAndRelationships(nodeIdMap, relationshipIdMap));
+    }
+};
+
 const observedActionTypes = [
     'NEW_GOOGLE_DRIVE_DIAGRAM',
     'NEW_LOCAL_STORAGE_DIAGRAM',
@@ -8678,7 +8712,7 @@ class Gestures {
 }
 
 const USER_CREATE_NODE = createNode;
-const USER_DELETE_NODES_AND_RELATIONSHIPS = deleteNodesAndRelationships;
+const USER_DELETE_NODES_AND_RELATIONSHIPS = deleteSelection;
 
 var userEvent = /*#__PURE__*/Object.freeze({
     __proto__: null,
