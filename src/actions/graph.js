@@ -408,6 +408,13 @@ export const setNodeCaption = (selection, caption) => ({
     caption
 })
 
+export const setNodeConcept = (selection, cid) => ({
+    category: 'GRAPH',
+    type: 'SET_NODE_CAPTION',
+    selection,
+    cid
+})
+
 export const addLabel = (selection, label) => ({
     category: 'GRAPH',
     type: 'ADD_LABEL',

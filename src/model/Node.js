@@ -46,5 +46,12 @@ export const setCaption = (node, caption) => {
     }
 }
 
+export const setConcept = (node, cid) => {
+    return {
+        ...node,
+        cid
+    }
+}
+
 export const isNode = entity =>
     entity.hasOwnProperty('caption') && entity.hasOwnProperty('position')

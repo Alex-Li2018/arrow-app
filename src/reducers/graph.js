@@ -6,7 +6,8 @@ import {
     renameLabel,
     removeLabel,
     moveTo,
-    setCaption
+    setCaption,
+    setConcept
 } from "../model/Node";
 import {
     reverse,
@@ -130,6 +131,15 @@ const graph = (state = emptyGraph(), action) => {
                 return {
                     style: state.style,
                     nodes: state.nodes.map((node) => nodeSelected(action.selection, node.id) ? setCaption(node, action.caption) : node),
+                    relationships: state.relationships
+                }
+            }
+
+        case 'SET_NODE_CONCEPT': 
+            {
+                return {
+                    style: state.style,
+                    nodes: state.nodes.map((node) => nodeSelected(action.selection, node.id) ? setConcept(node, action.caption) : node),
                     relationships: state.relationships
                 }
             }

@@ -987,6 +987,13 @@
         }
     };
 
+    const setConcept = (node, cid) => {
+        return {
+            ...node,
+            cid
+        }
+    };
+
     // 默认的node半径
     const defaultNodeRadius = 30;
     const defaultRelationshipLength = 200;
@@ -2306,6 +2313,15 @@
                     return {
                         style: state.style,
                         nodes: state.nodes.map((node) => nodeSelected(action.selection, node.id) ? setCaption(node, action.caption) : node),
+                        relationships: state.relationships
+                    }
+                }
+
+            case 'SET_NODE_CONCEPT': 
+                {
+                    return {
+                        style: state.style,
+                        nodes: state.nodes.map((node) => nodeSelected(action.selection, node.id) ? setConcept(node, action.caption) : node),
                         relationships: state.relationships
                     }
                 }
@@ -8197,6 +8213,20 @@
         }
     };
 
+    const setNodeCaption = (selection, caption) => ({
+        category: 'GRAPH',
+        type: 'SET_NODE_CAPTION',
+        selection,
+        caption
+    });
+
+    const setNodeConcept = (selection, cid) => ({
+        category: 'GRAPH',
+        type: 'SET_NODE_CAPTION',
+        selection,
+        cid
+    });
+
     const deleteNodesAndRelationships = (nodeIdMap, relationshipIdMap) => ({
         category: 'GRAPH',
         type: 'DELETE_NODES_AND_RELATIONSHIPS',
@@ -8777,12 +8807,18 @@
     const USER_VALIDATE_GRAPH = validateGraph;
     const USER_WINDOW_RESIZED = windowResized;
 
+    // node
+    const USER_NODE_CAPTION = setNodeCaption;
+    const USER__NODE_CONCEPT = setNodeConcept;
+
     var userEvent = /*#__PURE__*/Object.freeze({
         __proto__: null,
         USER_CREATE_NODE: USER_CREATE_NODE,
         USER_DELETE_NODES_AND_RELATIONSHIPS: USER_DELETE_NODES_AND_RELATIONSHIPS,
         USER_VALIDATE_GRAPH: USER_VALIDATE_GRAPH,
-        USER_WINDOW_RESIZED: USER_WINDOW_RESIZED
+        USER_WINDOW_RESIZED: USER_WINDOW_RESIZED,
+        USER_NODE_CAPTION: USER_NODE_CAPTION,
+        USER__NODE_CONCEPT: USER__NODE_CONCEPT
     });
 
     function merge(target, source) {
