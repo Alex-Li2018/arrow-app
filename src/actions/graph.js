@@ -775,3 +775,9 @@ export const convertCaptionsToPropertyValues = () => {
         dispatch(setNodeCaption(selection, ''))
     }
 }
+
+export const validateGraph = errorData => ({
+    category: 'GRAPH',
+    type: 'VALIDATE_GRAPH',
+    errorData
+})

@@ -429,6 +429,51 @@ const graph = (state = emptyGraph(), action) => {
         case 'GETTING_GRAPH_SUCCEEDED':
             return action.storedGraph
 
+
+        case 'VALIDATE_GRAPH': {
+            const {
+                errorNode,
+                errorRelationship
+            } = action
+
+            const newNodes = state.nodes.slice().map(item => {
+                if (errorNode.filter(_ => _.id === item.id).length) {
+                    return {
+                        ...item,
+                        style: {
+                            ...item.style,
+                            "border-color": "#f56c6c",
+                        }
+                    }
+                } else {
+                    return {
+                        ...item
+                    }
+                }
+            })
+            const newRelationships = state.relationships.slice().map(item => {
+                if (errorRelationship.filter(_ => _.id === item.id).length) {
+                    return {
+                        ...item,
+                        style: {
+                            ...item.style,
+                            "border-color": "#f56c6c",
+                        }
+                    }
+                } else {
+                    return {
+                        ...item
+                    }
+                }
+            })
+            
+            return {
+                style: state.style,
+                nodes: newNodes,
+                relationships: newRelationships
+            }
+        }
+
         default:
             return state
     }
