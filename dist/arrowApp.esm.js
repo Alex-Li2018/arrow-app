@@ -2599,6 +2599,51 @@ const graph = (state = emptyGraph(), action) => {
         case 'GETTING_GRAPH_SUCCEEDED':
             return action.storedGraph
 
+
+        case 'VALIDATE_GRAPH': {
+            const {
+                errorNode,
+                errorRelationship
+            } = action;
+
+            const newNodes = state.nodes.slice().map(item => {
+                if (errorNode.filter(_ => _.id === item.id).length) {
+                    return {
+                        ...item,
+                        style: {
+                            ...item.style,
+                            "border-color": "#f56c6c",
+                        }
+                    }
+                } else {
+                    return {
+                        ...item
+                    }
+                }
+            });
+            const newRelationships = state.relationships.slice().map(item => {
+                if (errorRelationship.filter(_ => _.id === item.id).length) {
+                    return {
+                        ...item,
+                        style: {
+                            ...item.style,
+                            "border-color": "#f56c6c",
+                        }
+                    }
+                } else {
+                    return {
+                        ...item
+                    }
+                }
+            });
+            
+            return {
+                style: state.style,
+                nodes: newNodes,
+                relationships: newRelationships
+            }
+        }
+
         default:
             return state
     }
@@ -8170,6 +8215,12 @@ const deleteSelection = () => {
     }
 };
 
+const validateGraph = errorData => ({
+    category: 'GRAPH',
+    type: 'VALIDATE_GRAPH',
+    errorData
+});
+
 const observedActionTypes = [
     'NEW_GOOGLE_DRIVE_DIAGRAM',
     'NEW_LOCAL_STORAGE_DIAGRAM',
@@ -8716,12 +8767,14 @@ class Gestures {
 
 const USER_CREATE_NODE = createNode;
 const USER_DELETE_NODES_AND_RELATIONSHIPS = deleteSelection;
+const USER_VALIDATE_GRAPH = validateGraph;
 const USER_WINDOW_RESIZED = windowResized;
 
 var userEvent = /*#__PURE__*/Object.freeze({
     __proto__: null,
     USER_CREATE_NODE: USER_CREATE_NODE,
     USER_DELETE_NODES_AND_RELATIONSHIPS: USER_DELETE_NODES_AND_RELATIONSHIPS,
+    USER_VALIDATE_GRAPH: USER_VALIDATE_GRAPH,
     USER_WINDOW_RESIZED: USER_WINDOW_RESIZED
 });
 
