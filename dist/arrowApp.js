@@ -2610,7 +2610,7 @@
                 const {
                     errorNode,
                     errorRelationship
-                } = action.validateGraph;
+                } = action.errorData;
 
                 const newNodes = state.nodes.slice().map(item => {
                     if (errorNode.filter(_ => _.id === item.id).length) {
