@@ -2604,7 +2604,7 @@ const graph = (state = emptyGraph(), action) => {
             const {
                 errorNode,
                 errorRelationship
-            } = action;
+            } = action.validateGraph;
 
             const newNodes = state.nodes.slice().map(item => {
                 if (errorNode.filter(_ => _.id === item.id).length) {
@@ -2627,7 +2627,8 @@ const graph = (state = emptyGraph(), action) => {
                         ...item,
                         style: {
                             ...item.style,
-                            "border-color": "#f56c6c",
+                            "type-color": "#f56c6c",
+                            "arrow-color": "#f56c6c",
                         }
                     }
                 } else {
