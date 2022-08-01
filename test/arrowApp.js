@@ -2173,6 +2173,14 @@
         return selection.entities.filter(entity => entity.entityType === 'node').map(entity => entity.id)
     };
 
+    const selectedNodeIdMap = (selection) => {
+        const idMap = {};
+        selection.entities.filter(entity => entity.entityType === 'node').forEach(entity => {
+            idMap[entity.id] = true;
+        });
+        return idMap
+    };
+
     const nodeSelected = (selection, nodeId) => {
         return selection.entities.some(entity =>
             entity.entityType === 'node' && entity.id === nodeId
@@ -2182,6 +2190,14 @@
     const nodeEditing = (selection, nodeId) => {
         return selection.editing &&
             selection.editing.entityType === 'node' && selection.editing.id === nodeId
+    };
+
+    const selectedRelationshipIdMap = (selection) => {
+        const idMap = {};
+        selection.entities.filter(entity => entity.entityType === 'relationship').forEach(entity => {
+            idMap[entity.id] = true;
+        });
+        return idMap
     };
 
     const relationshipSelected = (selection, relationshipId) => {
@@ -7491,7 +7507,7 @@
         }, [])
     };
 
-    const canvasPadding = 10;
+    const canvasPadding = 50;
 
     const computeCanvasSize = (applicationLayout) => {
         const {
@@ -8139,6 +8155,24 @@
         relationshipIdMap
     });
 
+    const deleteSelection = () => {
+        return function(dispatch, getState) {
+            const selection = getState().selection;
+            const relationships = getPresentGraph(getState()).relationships;
+
+            const nodeIdMap = selectedNodeIdMap(selection);
+            const relationshipIdMap = selectedRelationshipIdMap(selection);
+
+            relationships.forEach(relationship => {
+                if (!relationshipIdMap[relationship.id] && (nodeIdMap[relationship.fromId] || nodeIdMap[relationship.toId])) {
+                    relationshipIdMap[relationship.id] = true;
+                }
+            });
+
+            dispatch(deleteNodesAndRelationships(nodeIdMap, relationshipIdMap));
+        }
+    };
+
     const observedActionTypes = [
         'NEW_GOOGLE_DRIVE_DIAGRAM',
         'NEW_LOCAL_STORAGE_DIAGRAM',
@@ -8684,12 +8718,14 @@
     }
 
     const USER_CREATE_NODE = createNode;
-    const USER_DELETE_NODES_AND_RELATIONSHIPS = deleteNodesAndRelationships;
+    const USER_DELETE_NODES_AND_RELATIONSHIPS = deleteSelection;
+    const USER_WINDOW_RESIZED = windowResized;
 
     var userEvent = /*#__PURE__*/Object.freeze({
         __proto__: null,
         USER_CREATE_NODE: USER_CREATE_NODE,
-        USER_DELETE_NODES_AND_RELATIONSHIPS: USER_DELETE_NODES_AND_RELATIONSHIPS
+        USER_DELETE_NODES_AND_RELATIONSHIPS: USER_DELETE_NODES_AND_RELATIONSHIPS,
+        USER_WINDOW_RESIZED: USER_WINDOW_RESIZED
     });
 
     function merge(target, source) {
@@ -8742,15 +8778,13 @@
             // dispatch windowResized
             this.stateStore.dispatch(windowResized(this.options.width, this.options.height));
 
-            // fit canvas
-            this.fitCanvasSize(this.canvas, this.options);
-
             // event listener
             this.mouseHandler = new MouseHandler(this.canvas);
             this.mouseHandler.setDispatch(this.stateStore.dispatch);
             
             // listen render
             const callback = [];
+            callback.push(this.canvasChangeaHandler.bind(this));
             callback.push(this.renderVisuals.bind(this));
             callback.push(this.options.dataChange);
 
@@ -8760,15 +8794,15 @@
             this.dispatch = this.stateStore.dispatch;
         }
 
-        fitCanvasSize(canvas, {
+        fitCanvasSize({
             width, height
         }) {
-            canvas.width = width;
-            canvas.height = height;
-            canvas.style.width = width + 'px';
-            canvas.style.height = height + 'px';
+            this.canvas.width = width;
+            this.canvas.height = height;
+            this.canvas.style.width = width + 'px';
+            this.canvas.style.height = height + 'px';
 
-            const context = canvas.getContext('2d');
+            const context = this.canvas.getContext('2d');
 
             const devicePixelRatio = window.devicePixelRatio || 1;
             const backingStoreRatio = context.webkitBackingStorePixelRatio ||
@@ -8779,11 +8813,11 @@
             const ratio = devicePixelRatio / backingStoreRatio;
 
             if (devicePixelRatio !== backingStoreRatio) {
-                canvas.width = width * ratio;
-                canvas.height = height * ratio;
+                this.canvas.width = width * ratio;
+                this.canvas.height = height * ratio;
 
-                canvas.style.width = width + 'px';
-                canvas.style.height = height + 'px';
+                this.canvas.style.width = width + 'px';
+                this.canvas.style.height = height + 'px';
 
                 // now scale the context to counter
                 // the fact that we've manually scaled
@@ -8792,6 +8826,29 @@
             }
 
             return ratio
+        }
+
+        canvasChangeaHandler(newVal, oldVal) {
+            oldVal = oldVal || {};
+            newVal = newVal || {};
+
+            const {
+                canvasSize: oldSize
+            } = oldVal;
+
+            const {
+                canvasSize
+            } = newVal;
+
+            const flag = oldSize ? (oldSize.width !== canvasSize.width) || (oldSize.height !== canvasSize.height) 
+                : true;
+
+            if (
+                !canvasSize
+                || flag
+            ) {
+                this.fitCanvasSize(canvasSize);
+            }
         }
 
         // 可视化渲染

@@ -66,9 +66,11 @@ export const createNode = () => (dispatch, getState) => {
     const graph = getPresentGraph(getState())
     if (graph.nodes.length > 0) {
         const ranges = ['x', 'y'].map(dimension => {
+            // 获取所有节点的x坐标 与 y坐标的集合
             const coordinates = graph.nodes.map(node => node.position[dimension])
             const min = Math.min(...coordinates)
             const max = Math.max(...coordinates)
+            // 最大值与最小值的差值
             const spread = max - min
             return {
                 dimension,
@@ -76,6 +78,7 @@ export const createNode = () => (dispatch, getState) => {
                 max,
                 spread
             }
+        // 根据间距的大小 降序
         }).sort((a, b) => b.spread - a.spread)
         newNodePosition[ranges[0].dimension] = ranges[0].min
         newNodePosition[ranges[1].dimension] = ranges[1].max + defaultRelationshipLength + defaultNodeRadius * 2

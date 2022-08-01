@@ -19,6 +19,7 @@
     </style>
 </head>
 <body>
+    <button id="btn">add node</button>
     <canvas 
         id="canvas" 
         style="width: 100%; height: 100%;"
@@ -138,10 +139,18 @@
         }
 
         
-        new ArrowApp('canvas', graphData, {
+        const arrow = new ArrowApp('canvas', graphData, {
             width: 600,
-            height: 800
+            height: 600
         })
+
+        const {
+            USER_CREATE_NODE
+        } = arrow.userEvent
+        
+        document.getElementById('btn').onclick = function handlerAddNode() {
+            arrow.dispatch(USER_CREATE_NODE())
+        }
     </script>
 </body>
 </html>

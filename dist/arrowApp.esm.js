@@ -7501,7 +7501,7 @@ const getEventHandlers = (state, eventName) => {
     }, [])
 };
 
-const canvasPadding = 10;
+const canvasPadding = 50;
 
 const computeCanvasSize = (applicationLayout) => {
     const {
@@ -8772,18 +8772,15 @@ class ArrowApp {
         // dispatch windowResized
         this.stateStore.dispatch(windowResized(this.options.width, this.options.height));
 
-        // fit canvas
-        this.fitCanvasSize(this.canvas, this.options);
-
         // event listener
         this.mouseHandler = new MouseHandler(this.canvas);
         this.mouseHandler.setDispatch(this.stateStore.dispatch);
         
         // listen render
         const callback = [];
+        callback.push(this.canvasChangeaHandler.bind(this));
         callback.push(this.renderVisuals.bind(this));
         callback.push(this.options.dataChange);
-        callback.push(this.canvasChangeaHandler.bind(this));
 
         this.stateController.subscribeEvent(callback);
 
@@ -8825,7 +8822,10 @@ class ArrowApp {
         return ratio
     }
 
-    canvasChangeaHandler(oldVal, newVal) {
+    canvasChangeaHandler(newVal, oldVal) {
+        oldVal = oldVal || {};
+        newVal = newVal || {};
+
         const {
             canvasSize: oldSize
         } = oldVal;
@@ -8834,8 +8834,14 @@ class ArrowApp {
             canvasSize
         } = newVal;
 
-        if ((oldSize.width !== canvasSize.width) || (oldSize.height !== canvasSize.height)) {
-            this.fitCanvasSize();
+        const flag = oldSize ? (oldSize.width !== canvasSize.width) || (oldSize.height !== canvasSize.height) 
+            : true;
+
+        if (
+            !canvasSize
+            || flag
+        ) {
+            this.fitCanvasSize(canvasSize);
         }
     }
 
