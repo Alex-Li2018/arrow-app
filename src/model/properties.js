@@ -219,9 +219,18 @@ export const renameProperty = (entity, oldPropertyKey, newPropertyKey) => {
 }
 
 export const setProperty = (entity, key, value) => {
-    const properties = { ...entity.properties
+    const properties = { 
+        ...entity.properties
     }
     properties[key] = value
+    return {
+        ...entity,
+        properties
+    }
+}
+
+export const setAllProperty = (entity, properties) => {
+
     return {
         ...entity,
         properties

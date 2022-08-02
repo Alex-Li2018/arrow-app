@@ -10,7 +10,8 @@ import {
     deleteSelection, 
     validateGraph,
     setNodeCaption,
-    setNodeConcept
+    setNodeConcept,
+    setAllProperty
 } from './actions/graph'
 import { windowResized } from './actions/applicationLayout'
 
@@ -21,4 +22,5 @@ export const USER_WINDOW_RESIZED = windowResized
 
 // node
 export const USER_NODE_CAPTION = setNodeCaption
-export const USER__NODE_CONCEPT = setNodeConcept
+export const USER_NODE_CONCEPT = setNodeConcept
+export const USER_NODE_PROPERTY = setAllProperty

@@ -510,12 +510,23 @@ export const renameProperty = (selection, oldPropertyKey, newPropertyKey) => ({
     newPropertyKey
 })
 
-export const setProperty = (selection, key, value) => ({
+export const setProperty = ({
+    selection, key, value
+}) => ({
     category: 'GRAPH',
     type: 'SET_PROPERTY',
     selection,
     key,
     value
+})
+
+export const setAllProperty = ({
+    selection, properties
+}) => ({
+    category: 'GRAPH',
+    type: 'SET_ALL_PROPERTY',
+    selection,
+    properties
 })
 
 export const setPropertyValues = (key, nodePropertyValues) => ({

@@ -18,6 +18,7 @@ import {
     renameProperty,
     setArrowsProperty,
     setProperty,
+    setAllProperty,
     removeArrowsProperty
 } from "../model/properties";
 import {
@@ -126,6 +127,7 @@ const graph = (state = emptyGraph(), action) => {
                 }
             }
 
+        // 设置节点名称
         case 'SET_NODE_CAPTION':
             {
                 return {
@@ -134,7 +136,8 @@ const graph = (state = emptyGraph(), action) => {
                     relationships: state.relationships
                 }
             }
-
+        
+        // 设置节点概念
         case 'SET_NODE_CONCEPT': 
             {
                 return {
@@ -234,12 +237,23 @@ const graph = (state = emptyGraph(), action) => {
                 }
             }
 
+        // 设置单个属性
         case 'SET_PROPERTY':
             {
                 return {
                     style: state.style,
                     nodes: state.nodes.map((node) => nodeSelected(action.selection, node.id) ? setProperty(node, action.key, action.value) : node),
                     relationships: state.relationships.map((relationship) => relationshipSelected(action.selection, relationship.id) ? setProperty(relationship, action.key, action.value) : relationship)
+                }
+            }
+
+        // 设置全部属性更改
+        case 'SET_ALL_PROPERTY':
+            {
+                return {
+                    style: state.style,
+                    nodes: state.nodes.map((node) => nodeSelected(action.selection, node.id) ? setAllProperty(node, action.properties) : node),
+                    relationships: state.relationships.map((relationship) => relationshipSelected(action.selection, relationship.id) ? setAllProperty(relationship, action.properties) : relationship)
                 }
             }
 
