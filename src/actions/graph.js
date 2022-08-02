@@ -572,12 +572,13 @@ export const setGraphStyles = (style) => ({
 })
 
 export const setRelationshipType = ({
-    selection, relationshipType
+    selection, relationshipType, conceptId
 }) => ({
     category: 'GRAPH',
     type: 'SET_RELATIONSHIP_TYPE',
     selection,
-    relationshipType
+    relationshipType,
+    conceptId
 })
 
 export const duplicateNodesAndRelationships = (nodeIdMap, relationshipIdMap) => ({

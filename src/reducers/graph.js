@@ -142,7 +142,7 @@ const graph = (state = emptyGraph(), action) => {
             {
                 return {
                     style: state.style,
-                    nodes: state.nodes.map((node) => nodeSelected(action.selection, node.id) ? setConcept(node, action.caption) : node),
+                    nodes: state.nodes.map((node) => nodeSelected(action.selection, node.id) ? setConcept(node, action.cid) : node),
                     relationships: state.relationships
                 }
             }
@@ -348,11 +348,32 @@ const graph = (state = emptyGraph(), action) => {
                 relationships: state.relationships
             }
 
-        case 'SET_RELATIONSHIP_TYPE':
-            return {
-                style: state.style,
-                nodes: state.nodes,
-                relationships: state.relationships.map(relationship => relationshipSelected(action.selection, relationship.id) ? setType(relationship, action.relationshipType) : relationship)
+        case 'SET_RELATIONSHIP_TYPE': 
+            {
+                // 设置边的名称时，同时设置尾节点的概念ID
+                const relationshipArr = state.relationships.filter(relationship => relationshipSelected(action.selection, relationship.id))
+
+                let newNodes = state.nodes.slice()
+                if (relationshipArr.length) {
+                    newNodes = state.nodes.slice().map(item => {
+                        if (relationshipArr[0].toId === item.id) {
+                            return {
+                                ...item,
+                                cid: action.conceptId
+                            }
+                        } else {
+                            return {
+                                ...item
+                            }
+                        }
+                    })
+                }
+
+                return {
+                    style: state.style,
+                    nodes: newNodes,
+                    relationships: state.relationships.map(relationship => relationshipSelected(action.selection, relationship.id) ? setType(relationship, action.relationshipType) : relationship)
+                }
             }
 
         case 'DUPLICATE_NODES_AND_RELATIONSHIPS':
