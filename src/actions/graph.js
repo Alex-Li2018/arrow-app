@@ -401,21 +401,27 @@ export const moveNodesEndDrag = (nodePositions) => {
     }
 }
 
-export const setNodeCaption = (selection, caption) => ({
+export const setNodeCaption = ({
+    selection, caption
+}) => ({
     category: 'GRAPH',
     type: 'SET_NODE_CAPTION',
     selection,
     caption
 })
 
-export const setNodeConcept = (selection, cid) => ({
+export const setNodeConcept = ({
+    selection, cid
+}) => ({
     category: 'GRAPH',
-    type: 'SET_NODE_CAPTION',
+    type: 'SET_NODE_CONCEPT',
     selection,
     cid
 })
 
-export const addLabel = (selection, label) => ({
+export const addLabel = ({
+    selection, label
+}) => ({
     category: 'GRAPH',
     type: 'ADD_LABEL',
     selection,
