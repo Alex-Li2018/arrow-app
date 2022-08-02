@@ -2332,7 +2332,7 @@
                 {
                     return {
                         style: state.style,
-                        nodes: state.nodes.map((node) => nodeSelected(action.selection, node.id) ? setConcept(node, action.caption) : node),
+                        nodes: state.nodes.map((node) => nodeSelected(action.selection, node.id) ? setConcept(node, action.cid) : node),
                         relationships: state.relationships
                     }
                 }
@@ -2538,11 +2538,32 @@
                     relationships: state.relationships
                 }
 
-            case 'SET_RELATIONSHIP_TYPE':
-                return {
-                    style: state.style,
-                    nodes: state.nodes,
-                    relationships: state.relationships.map(relationship => relationshipSelected(action.selection, relationship.id) ? setType(relationship, action.relationshipType) : relationship)
+            case 'SET_RELATIONSHIP_TYPE': 
+                {
+                    // 设置边的名称时，同时设置尾节点的概念ID
+                    const relationshipArr = state.relationships.filter(relationship => relationshipSelected(action.selection, relationship.id));
+
+                    let newNodes = state.nodes.slice();
+                    if (relationshipArr.length) {
+                        newNodes = state.nodes.slice().map(item => {
+                            if (relationshipArr[0].toId === item.id) {
+                                return {
+                                    ...item,
+                                    cid: action.conceptId
+                                }
+                            } else {
+                                return {
+                                    ...item
+                                }
+                            }
+                        });
+                    }
+
+                    return {
+                        style: state.style,
+                        nodes: newNodes,
+                        relationships: state.relationships.map(relationship => relationshipSelected(action.selection, relationship.id) ? setType(relationship, action.relationshipType) : relationship)
+                    }
                 }
 
             case 'DUPLICATE_NODES_AND_RELATIONSHIPS':
@@ -2791,16 +2812,25 @@
                 }
             case 'CREATE_NODES_AND_RELATIONSHIPS':
                 {
+                    // 选中关系边
+                    // return {
+                    //     editing: undefined,
+                    //     entities: action.targetNodeIds.map(targetNodeId => ({
+                    //         entityType: 'node',
+                    //         id: targetNodeId
+                    //     }))
+                    // }
                     return {
                         editing: undefined,
-                        entities: action.targetNodeIds.map(targetNodeId => ({
-                            entityType: 'node',
-                            id: targetNodeId
+                        entities: action.newRelationshipIds.map(newRelationshipId => ({
+                            entityType: 'relationship',
+                            id: newRelationshipId
                         }))
                     }
                 }
             case 'CONNECT_NODES':
                 {
+                    // 选中关系边
                     return {
                         editing: undefined,
                         entities: action.newRelationshipIds.map(newRelationshipId => ({
@@ -7693,7 +7723,9 @@
             if (handle) {
                 dispatch(mouseDownOnHandle(handle.corner, canvasPosition, getPositionsOfSelectedNodes(state)));
             } else {
+                // 根据坐标判断出点击处于那里 节点 圆环 边
                 const item = visualGraph.entityAtPoint(graphPosition);
+
                 if (item) {
                     switch (item.entityType) {
                         case 'node':
@@ -8263,12 +8295,13 @@
     });
 
     const setRelationshipType = ({
-        selection, relationshipType
+        selection, relationshipType, conceptId
     }) => ({
         category: 'GRAPH',
         type: 'SET_RELATIONSHIP_TYPE',
         selection,
-        relationshipType
+        relationshipType,
+        conceptId
     });
 
     const deleteNodesAndRelationships = (nodeIdMap, relationshipIdMap) => ({

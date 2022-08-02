@@ -94,16 +94,25 @@ export default function selection(state = {
             }
         case 'CREATE_NODES_AND_RELATIONSHIPS':
             {
+                // 选中关系边
+                // return {
+                //     editing: undefined,
+                //     entities: action.targetNodeIds.map(targetNodeId => ({
+                //         entityType: 'node',
+                //         id: targetNodeId
+                //     }))
+                // }
                 return {
                     editing: undefined,
-                    entities: action.targetNodeIds.map(targetNodeId => ({
-                        entityType: 'node',
-                        id: targetNodeId
+                    entities: action.newRelationshipIds.map(newRelationshipId => ({
+                        entityType: 'relationship',
+                        id: newRelationshipId
                     }))
                 }
             }
         case 'CONNECT_NODES':
             {
+                // 选中关系边
                 return {
                     editing: undefined,
                     entities: action.newRelationshipIds.map(newRelationshipId => ({

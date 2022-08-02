@@ -150,7 +150,9 @@ export const mouseDown = (canvasPosition, multiSelectModifierKey) => {
         if (handle) {
             dispatch(mouseDownOnHandle(handle.corner, canvasPosition, getPositionsOfSelectedNodes(state)))
         } else {
+            // 根据坐标判断出点击处于那里 节点 圆环 边
             const item = visualGraph.entityAtPoint(graphPosition)
+
             if (item) {
                 switch (item.entityType) {
                     case 'node':
