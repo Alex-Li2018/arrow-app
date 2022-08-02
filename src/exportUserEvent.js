@@ -11,7 +11,8 @@ import {
     validateGraph,
     setNodeCaption,
     setNodeConcept,
-    setAllProperty
+    setAllProperty,
+    setRelationshipType
 } from './actions/graph'
 import { windowResized } from './actions/applicationLayout'
 
@@ -24,3 +25,6 @@ export const USER_WINDOW_RESIZED = windowResized
 export const USER_NODE_CAPTION = setNodeCaption
 export const USER_NODE_CONCEPT = setNodeConcept
 export const USER_NODE_PROPERTY = setAllProperty
+
+// relationship
+export const USER_RELATIONSHIP_TYPE = setRelationshipType

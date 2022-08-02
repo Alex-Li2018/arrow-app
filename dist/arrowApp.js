@@ -1586,9 +1586,18 @@
     };
 
     const setProperty = (entity, key, value) => {
-        const properties = { ...entity.properties
+        const properties = { 
+            ...entity.properties
         };
         properties[key] = value;
+        return {
+            ...entity,
+            properties
+        }
+    };
+
+    const setAllProperty$1 = (entity, properties) => {
+
         return {
             ...entity,
             properties
@@ -2308,6 +2317,7 @@
                     }
                 }
 
+            // 设置节点名称
             case 'SET_NODE_CAPTION':
                 {
                     return {
@@ -2316,7 +2326,8 @@
                         relationships: state.relationships
                     }
                 }
-
+            
+            // 设置节点概念
             case 'SET_NODE_CONCEPT': 
                 {
                     return {
@@ -2416,12 +2427,23 @@
                     }
                 }
 
+            // 设置单个属性
             case 'SET_PROPERTY':
                 {
                     return {
                         style: state.style,
                         nodes: state.nodes.map((node) => nodeSelected(action.selection, node.id) ? setProperty(node, action.key, action.value) : node),
                         relationships: state.relationships.map((relationship) => relationshipSelected(action.selection, relationship.id) ? setProperty(relationship, action.key, action.value) : relationship)
+                    }
+                }
+
+            // 设置全部属性更改
+            case 'SET_ALL_PROPERTY':
+                {
+                    return {
+                        style: state.style,
+                        nodes: state.nodes.map((node) => nodeSelected(action.selection, node.id) ? setAllProperty$1(node, action.properties) : node),
+                        relationships: state.relationships.map((relationship) => relationshipSelected(action.selection, relationship.id) ? setAllProperty$1(relationship, action.properties) : relationship)
                     }
                 }
 
@@ -8213,18 +8235,40 @@
         }
     };
 
-    const setNodeCaption = (selection, caption) => ({
+    const setNodeCaption = ({
+        selection, caption
+    }) => ({
         category: 'GRAPH',
         type: 'SET_NODE_CAPTION',
         selection,
         caption
     });
 
-    const setNodeConcept = (selection, cid) => ({
+    const setNodeConcept = ({
+        selection, cid
+    }) => ({
         category: 'GRAPH',
-        type: 'SET_NODE_CAPTION',
+        type: 'SET_NODE_CONCEPT',
         selection,
         cid
+    });
+
+    const setAllProperty = ({
+        selection, properties
+    }) => ({
+        category: 'GRAPH',
+        type: 'SET_ALL_PROPERTY',
+        selection,
+        properties
+    });
+
+    const setRelationshipType = ({
+        selection, relationshipType
+    }) => ({
+        category: 'GRAPH',
+        type: 'SET_RELATIONSHIP_TYPE',
+        selection,
+        relationshipType
     });
 
     const deleteNodesAndRelationships = (nodeIdMap, relationshipIdMap) => ({
@@ -8809,7 +8853,11 @@
 
     // node
     const USER_NODE_CAPTION = setNodeCaption;
-    const USER__NODE_CONCEPT = setNodeConcept;
+    const USER_NODE_CONCEPT = setNodeConcept;
+    const USER_NODE_PROPERTY = setAllProperty;
+
+    // relationship
+    const USER_RELATIONSHIP_TYPE = setRelationshipType;
 
     var userEvent = /*#__PURE__*/Object.freeze({
         __proto__: null,
@@ -8818,7 +8866,9 @@
         USER_VALIDATE_GRAPH: USER_VALIDATE_GRAPH,
         USER_WINDOW_RESIZED: USER_WINDOW_RESIZED,
         USER_NODE_CAPTION: USER_NODE_CAPTION,
-        USER__NODE_CONCEPT: USER__NODE_CONCEPT
+        USER_NODE_CONCEPT: USER_NODE_CONCEPT,
+        USER_NODE_PROPERTY: USER_NODE_PROPERTY,
+        USER_RELATIONSHIP_TYPE: USER_RELATIONSHIP_TYPE
     });
 
     function merge(target, source) {

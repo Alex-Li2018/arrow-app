@@ -987,6 +987,13 @@
         }
     };
 
+    const setConcept = (node, cid) => {
+        return {
+            ...node,
+            cid
+        }
+    };
+
     // 默认的node半径
     const defaultNodeRadius = 30;
     const defaultRelationshipLength = 200;
@@ -1579,9 +1586,18 @@
     };
 
     const setProperty = (entity, key, value) => {
-        const properties = { ...entity.properties
+        const properties = { 
+            ...entity.properties
         };
         properties[key] = value;
+        return {
+            ...entity,
+            properties
+        }
+    };
+
+    const setAllProperty$1 = (entity, properties) => {
+
         return {
             ...entity,
             properties
@@ -2301,11 +2317,22 @@
                     }
                 }
 
+            // 设置节点名称
             case 'SET_NODE_CAPTION':
                 {
                     return {
                         style: state.style,
                         nodes: state.nodes.map((node) => nodeSelected(action.selection, node.id) ? setCaption(node, action.caption) : node),
+                        relationships: state.relationships
+                    }
+                }
+            
+            // 设置节点概念
+            case 'SET_NODE_CONCEPT': 
+                {
+                    return {
+                        style: state.style,
+                        nodes: state.nodes.map((node) => nodeSelected(action.selection, node.id) ? setConcept(node, action.caption) : node),
                         relationships: state.relationships
                     }
                 }
@@ -2400,12 +2427,23 @@
                     }
                 }
 
+            // 设置单个属性
             case 'SET_PROPERTY':
                 {
                     return {
                         style: state.style,
                         nodes: state.nodes.map((node) => nodeSelected(action.selection, node.id) ? setProperty(node, action.key, action.value) : node),
                         relationships: state.relationships.map((relationship) => relationshipSelected(action.selection, relationship.id) ? setProperty(relationship, action.key, action.value) : relationship)
+                    }
+                }
+
+            // 设置全部属性更改
+            case 'SET_ALL_PROPERTY':
+                {
+                    return {
+                        style: state.style,
+                        nodes: state.nodes.map((node) => nodeSelected(action.selection, node.id) ? setAllProperty$1(node, action.properties) : node),
+                        relationships: state.relationships.map((relationship) => relationshipSelected(action.selection, relationship.id) ? setAllProperty$1(relationship, action.properties) : relationship)
                     }
                 }
 
@@ -2604,6 +2642,52 @@
 
             case 'GETTING_GRAPH_SUCCEEDED':
                 return action.storedGraph
+
+
+            case 'VALIDATE_GRAPH': {
+                const {
+                    errorNode,
+                    errorRelationship
+                } = action.errorData;
+
+                const newNodes = state.nodes.slice().map(item => {
+                    if (errorNode.filter(_ => _.id === item.id).length) {
+                        return {
+                            ...item,
+                            style: {
+                                ...item.style,
+                                "border-color": "#f56c6c",
+                            }
+                        }
+                    } else {
+                        return {
+                            ...item
+                        }
+                    }
+                });
+                const newRelationships = state.relationships.slice().map(item => {
+                    if (errorRelationship.filter(_ => _.id === item.id).length) {
+                        return {
+                            ...item,
+                            style: {
+                                ...item.style,
+                                "type-color": "#f56c6c",
+                                "arrow-color": "#f56c6c",
+                            }
+                        }
+                    } else {
+                        return {
+                            ...item
+                        }
+                    }
+                });
+                
+                return {
+                    style: state.style,
+                    nodes: newNodes,
+                    relationships: newRelationships
+                }
+            }
 
             default:
                 return state
@@ -7816,9 +7900,11 @@
         const graph = getPresentGraph(getState());
         if (graph.nodes.length > 0) {
             const ranges = ['x', 'y'].map(dimension => {
+                // 获取所有节点的x坐标 与 y坐标的集合
                 const coordinates = graph.nodes.map(node => node.position[dimension]);
                 const min = Math.min(...coordinates);
                 const max = Math.max(...coordinates);
+                // 最大值与最小值的差值
                 const spread = max - min;
                 return {
                     dimension,
@@ -7826,6 +7912,7 @@
                     max,
                     spread
                 }
+            // 根据间距的大小 降序
             }).sort((a, b) => b.spread - a.spread);
             newNodePosition[ranges[0].dimension] = ranges[0].min;
             newNodePosition[ranges[1].dimension] = ranges[1].max + defaultRelationshipLength + defaultNodeRadius * 2;
@@ -8148,6 +8235,42 @@
         }
     };
 
+    const setNodeCaption = ({
+        selection, caption
+    }) => ({
+        category: 'GRAPH',
+        type: 'SET_NODE_CAPTION',
+        selection,
+        caption
+    });
+
+    const setNodeConcept = ({
+        selection, cid
+    }) => ({
+        category: 'GRAPH',
+        type: 'SET_NODE_CONCEPT',
+        selection,
+        cid
+    });
+
+    const setAllProperty = ({
+        selection, properties
+    }) => ({
+        category: 'GRAPH',
+        type: 'SET_ALL_PROPERTY',
+        selection,
+        properties
+    });
+
+    const setRelationshipType = ({
+        selection, relationshipType
+    }) => ({
+        category: 'GRAPH',
+        type: 'SET_RELATIONSHIP_TYPE',
+        selection,
+        relationshipType
+    });
+
     const deleteNodesAndRelationships = (nodeIdMap, relationshipIdMap) => ({
         category: 'GRAPH',
         type: 'DELETE_NODES_AND_RELATIONSHIPS',
@@ -8172,6 +8295,12 @@
             dispatch(deleteNodesAndRelationships(nodeIdMap, relationshipIdMap));
         }
     };
+
+    const validateGraph = errorData => ({
+        category: 'GRAPH',
+        type: 'VALIDATE_GRAPH',
+        errorData
+    });
 
     const observedActionTypes = [
         'NEW_GOOGLE_DRIVE_DIAGRAM',
@@ -8719,13 +8848,27 @@
 
     const USER_CREATE_NODE = createNode;
     const USER_DELETE_NODES_AND_RELATIONSHIPS = deleteSelection;
+    const USER_VALIDATE_GRAPH = validateGraph;
     const USER_WINDOW_RESIZED = windowResized;
+
+    // node
+    const USER_NODE_CAPTION = setNodeCaption;
+    const USER_NODE_CONCEPT = setNodeConcept;
+    const USER_NODE_PROPERTY = setAllProperty;
+
+    // relationship
+    const USER_RELATIONSHIP_TYPE = setRelationshipType;
 
     var userEvent = /*#__PURE__*/Object.freeze({
         __proto__: null,
         USER_CREATE_NODE: USER_CREATE_NODE,
         USER_DELETE_NODES_AND_RELATIONSHIPS: USER_DELETE_NODES_AND_RELATIONSHIPS,
-        USER_WINDOW_RESIZED: USER_WINDOW_RESIZED
+        USER_VALIDATE_GRAPH: USER_VALIDATE_GRAPH,
+        USER_WINDOW_RESIZED: USER_WINDOW_RESIZED,
+        USER_NODE_CAPTION: USER_NODE_CAPTION,
+        USER_NODE_CONCEPT: USER_NODE_CONCEPT,
+        USER_NODE_PROPERTY: USER_NODE_PROPERTY,
+        USER_RELATIONSHIP_TYPE: USER_RELATIONSHIP_TYPE
     });
 
     function merge(target, source) {
