@@ -3,14 +3,18 @@ import scss from 'rollup-plugin-scss'
 import { terser } from "rollup-plugin-terser";
 import { nodeResolve } from '@rollup/plugin-node-resolve';
 import commonjs from '@rollup/plugin-commonjs';
-import injectProcessEnv from 'rollup-plugin-inject-process-env';
+// import injectProcessEnv from 'rollup-plugin-inject-process-env';
+import replace from '@rollup/plugin-replace';
 
 const plugins = [
     scss(),
-    injectProcessEnv({ 
-        NODE_ENV: process.env.NODE_ENV,
-        SOME_OBJECT: {},
-        UNUSED: null
+    // injectProcessEnv({ 
+    //     NODE_ENV: process.env.NODE_ENV,
+    //     SOME_OBJECT: {},
+    //     UNUSED: null
+    // }),
+    replace({
+        'process.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV),
     }),
     commonjs(),
     nodeResolve(),

@@ -1,15 +1,3 @@
-(function() {
-    const env = {"NODE_ENV":"development","SOME_OBJECT":{},"UNUSED":null};
-    try {
-        if (process) {
-            process.env = Object.assign({}, process.env);
-            Object.assign(process.env, env);
-            return;
-        }
-    } catch (e) {} // avoid ReferenceError: process is not defined
-    globalThis.process = { env:env };
-})();
-
 class CanvasAdaptor {
     constructor(ctx) {
         this.ctx = ctx;
@@ -293,7 +281,7 @@ function isDate(val) {
 function kindOf(val) {
   let typeOfVal = typeof val;
 
-  if (process.env.NODE_ENV !== 'production') {
+  {
     typeOfVal = miniKindOf(val);
   }
 
@@ -732,7 +720,7 @@ function combineReducers(reducers) {
   for (let i = 0; i < reducerKeys.length; i++) {
     const key = reducerKeys[i];
 
-    if (process.env.NODE_ENV !== 'production') {
+    {
       if (typeof reducers[key] === 'undefined') {
         warning(`No reducer provided for key "${key}"`);
       }
@@ -747,7 +735,7 @@ function combineReducers(reducers) {
   // This is used to make sure we don't warn about the same
   // keys multiple times.
   let unexpectedKeyCache;
-  if (process.env.NODE_ENV !== 'production') {
+  {
     unexpectedKeyCache = {};
   }
 
@@ -763,7 +751,7 @@ function combineReducers(reducers) {
       throw shapeAssertionError
     }
 
-    if (process.env.NODE_ENV !== 'production') {
+    {
       const warningMessage = getUnexpectedStateShapeWarningMessage(
         state,
         finalReducers,
@@ -871,7 +859,6 @@ function applyMiddleware(...middlewares) {
 function isCrushed() {}
 
 if (
-  process.env.NODE_ENV !== 'production' &&
   typeof isCrushed.name === 'string' &&
   isCrushed.name !== 'isCrushed'
 ) {
@@ -8872,6 +8859,8 @@ class Gestures {
         }
     }
 }
+
+// exort user interface event
 
 const USER_CREATE_NODE = createNode;
 const USER_DELETE_NODES_AND_RELATIONSHIPS = deleteSelection;
