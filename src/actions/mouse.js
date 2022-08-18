@@ -169,10 +169,10 @@ export const mouseDown = (canvasPosition, multiSelectModifierKey) => {
                         break
                 }
             } else {
-                if (!multiSelectModifierKey) {
-                    dispatch(clearSelection())
-                }
-                dispatch(mouseDownOnCanvas(canvasPosition, graphPosition))
+                // if (!multiSelectModifierKey) {
+                //     dispatch(clearSelection())
+                // }
+                // dispatch(mouseDownOnCanvas(canvasPosition, graphPosition))
             }
         }
     }
@@ -275,7 +275,7 @@ export const mouseMove = (canvasPosition) => {
 
                 case 'CANVAS':
                 case 'MARQUEE':
-                    dispatch(setMarquee(mouse.mouseDownPosition, graphPosition))
+                    // dispatch(setMarquee(mouse.mouseDownPosition, graphPosition))
                     break
             }
         }
@@ -297,7 +297,7 @@ export const mouseUp = () => {
         if (!preventDefault) {
             switch (mouse.dragType) {
                 case 'MARQUEE':
-                    dispatch(selectItemsInMarquee())
+                    // dispatch(selectItemsInMarquee())
                     break
                 case 'HANDLE':
                     dispatch(moveNodesEndDrag(getPositionsOfSelectedNodes(state)))

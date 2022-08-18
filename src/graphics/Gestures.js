@@ -67,18 +67,18 @@ export default class Gestures {
             from
         ]
 
-        if (selectionMarquee && visualGraph.graph.nodes.length > 0) {
-            const marqueeScreen = {
-                from: transform(selectionMarquee.from),
-                to: transform(selectionMarquee.to)
-            }
-            const bBoxScreen = getBbox(marqueeScreen.from, marqueeScreen.to)
+        // if (selectionMarquee && visualGraph.graph.nodes.length > 0) {
+        //     const marqueeScreen = {
+        //         from: transform(selectionMarquee.from),
+        //         to: transform(selectionMarquee.to)
+        //     }
+        //     const bBoxScreen = getBbox(marqueeScreen.from, marqueeScreen.to)
 
-            ctx.save()
-            ctx.strokeStyle = this.marqueeColor
-            drawPolygon(ctx, bBoxScreen, false, true)
-            ctx.restore()
-        }
+        //     ctx.save()
+        //     ctx.strokeStyle = this.marqueeColor
+        //     drawPolygon(ctx, bBoxScreen, false, true)
+        //     ctx.restore()
+        // }
 
         const drawNewNodeAndRelationship = (sourceNodeId, targetNodeId, newNodeNaturalPosition) => {
             const sourceNode = visualGraph.nodes[sourceNodeId]
