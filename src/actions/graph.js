@@ -61,7 +61,7 @@ export const initGraph = (graph) => ({
     graph
 })
 
-export const createNode = () => (dispatch, getState) => {
+export const createNode = (nodeInfo) => (dispatch, getState) => {
     let newNodePosition = new Point(0, 0)
     const graph = getPresentGraph(getState())
     if (graph.nodes.length > 0) {
@@ -84,14 +84,28 @@ export const createNode = () => (dispatch, getState) => {
         newNodePosition[ranges[1].dimension] = ranges[1].max + defaultRelationshipLength + defaultNodeRadius * 2
     }
 
-    dispatch({
-        category: 'GRAPH',
-        type: 'CREATE_NODE',
-        newNodeId: nextAvailableId(getPresentGraph(getState()).nodes),
-        newNodePosition,
-        caption: '',
-        style: {}
-    })
+    if (nodeInfo) {
+        dispatch({
+            category: 'GRAPH',
+            type: 'CREATE_NODE',
+            newNodeId: nodeInfo.id,
+            newNodePosition,
+            caption: nodeInfo.caption,
+            cid: nodeInfo.cid,
+            labels: nodeInfo.labels,
+            properties: nodeInfo.properties,
+            style: nodeInfo.style || {}
+        })
+    } else {
+        dispatch({
+            category: 'GRAPH',
+            type: 'CREATE_NODE',
+            newNodeId: nextAvailableId(getPresentGraph(getState()).nodes),
+            newNodePosition,
+            caption: '',
+            style: {}
+        })
+    }
 }
 
 export const createNodesAndRelationships = (sourceNodeIds, targetNodeDisplacement) => (dispatch, getState) => {

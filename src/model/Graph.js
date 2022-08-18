@@ -17,6 +17,8 @@ import {
 export const emptyGraph = () => {
     return {
         nodes: [{
+            // 概念id
+            cid: '',
             id: nextAvailableId([]),
             position: new Point(0, 0),
             caption: '',

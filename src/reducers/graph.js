@@ -64,12 +64,13 @@ const graph = (state = emptyGraph(), action) => {
             {
                 const newNodes = state.nodes.slice();
                 newNodes.push({
+                    cid: action.cid || '',
                     id: action.newNodeId,
                     position: action.newNodePosition,
                     caption: action.caption,
-                    style: action.style,
-                    labels: [],
-                    properties: {}
+                    style: action.style || {},
+                    labels: action.labels || [],
+                    properties: action.properties || {},
                 })
                 return {
                     style: state.style,

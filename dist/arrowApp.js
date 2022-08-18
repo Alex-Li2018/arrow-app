@@ -1756,6 +1756,8 @@
     const emptyGraph = () => {
         return {
             nodes: [{
+                // 概念id
+                cid: '',
                 id: nextAvailableId([]),
                 position: new Point(0, 0),
                 caption: '',
@@ -2241,12 +2243,13 @@
                 {
                     const newNodes = state.nodes.slice();
                     newNodes.push({
+                        cid: action.cid || '',
                         id: action.newNodeId,
                         position: action.newNodePosition,
                         caption: action.caption,
-                        style: action.style,
-                        labels: [],
-                        properties: {}
+                        style: action.style || {},
+                        labels: action.labels || [],
+                        properties: action.properties || {},
                     });
                     return {
                         style: state.style,
@@ -4328,21 +4331,6 @@
     const drawTextLine = (ctx, line, position, alignment) => {
         ctx.textAlign = alignment;
         ctx.fillText(line, position.x, position.y);
-    };
-
-    const drawPolygon = (ctx, points, fill, stroke) => {
-        if (points.length < 3) {
-            return
-        }
-        ctx.fillStyle = fill || 'none';
-        ctx.beginPath();
-        ctx.moveTo(points[0].x, points[0].y);
-        points.forEach(point => {
-            ctx.lineTo(point.x, point.y);
-            stroke && ctx.stroke();
-        });
-        ctx.closePath();
-        fill && ctx.fill();
     };
 
     const fitTextToRectangle = (text, maxWidth, measureWidth) => {
@@ -7451,10 +7439,6 @@
         mode
     });
 
-    const clearSelection = () => ({
-        type: 'CLEAR_SELECTION',
-    });
-
     const snapToTargetNode = (visualGraph, excludedNodeId, naturalPosition) => {
         const targetNode = visualGraph.closestNode(naturalPosition, (visualNode, distance) => {
             return !idsMatch(visualNode.id, excludedNodeId) && distance < visualNode.radius
@@ -7562,40 +7546,6 @@
             newMousePosition
         }
     };
-
-    const setMarquee = (from, to) => ({
-        type: 'SET_MARQUEE',
-        marquee: {
-            from,
-            to
-        },
-        newMousePosition: to
-    });
-
-    const selectItemsInMarquee = () => {
-        return function(dispatch, getState) {
-            const state = getState();
-            const marquee = state.gestures.selectionMarquee;
-            if (marquee) {
-                const visualGraph = getVisualGraph(state);
-                const boundingBox = getBBoxFromCorners(marquee);
-                const entities = visualGraph.entitiesInBoundingBox(boundingBox);
-                if (entities.length > 0) {
-                    dispatch(toggleSelection(entities, 'or'));
-                }
-            }
-        }
-    };
-
-    const getBBoxFromCorners = ({
-        from,
-        to
-    }) => new BoundingBox(
-        Math.min(from.x, to.x),
-        Math.max(from.x, to.x),
-        Math.min(from.y, to.y),
-        Math.max(from.y, to.y)
-    );
 
     const getEventHandlers = (state, eventName) => {
         return state.applicationLayout.layers.reduce((handlers, layer) => {
@@ -7728,11 +7678,6 @@
                             dispatch(mouseDownOnNodeRing(item, canvasPosition));
                             break
                     }
-                } else {
-                    if (!multiSelectModifierKey) {
-                        dispatch(clearSelection());
-                    }
-                    dispatch(mouseDownOnCanvas(canvasPosition, graphPosition));
                 }
             }
         }
@@ -7761,12 +7706,6 @@
         type: 'MOUSE_DOWN_ON_NODE_RING',
         node,
         position: canvasPosition
-    });
-
-    const mouseDownOnCanvas = (canvasPosition, graphPosition) => ({
-        type: 'MOUSE_DOWN_ON_CANVAS',
-        canvasPosition,
-        graphPosition
     });
 
     const furtherThanDragThreshold = (previousPosition, newPosition) => {
@@ -7832,11 +7771,6 @@
                     case 'NODE_RING':
                         dispatch(tryDragRing(mouse.node.id, graphPosition));
                         break
-
-                    case 'CANVAS':
-                    case 'MARQUEE':
-                        dispatch(setMarquee(mouse.mouseDownPosition, graphPosition));
-                        break
                 }
             }
         }
@@ -7857,7 +7791,7 @@
             if (!preventDefault) {
                 switch (mouse.dragType) {
                     case 'MARQUEE':
-                        dispatch(selectItemsInMarquee());
+                        // dispatch(selectItemsInMarquee())
                         break
                     case 'HANDLE':
                         dispatch(moveNodesEndDrag(getPositionsOfSelectedNodes(state)));
@@ -7914,7 +7848,7 @@
         graph
     });
 
-    const createNode = () => (dispatch, getState) => {
+    const createNode = (nodeInfo) => (dispatch, getState) => {
         let newNodePosition = new Point(0, 0);
         const graph = getPresentGraph(getState());
         if (graph.nodes.length > 0) {
@@ -7937,14 +7871,28 @@
             newNodePosition[ranges[1].dimension] = ranges[1].max + defaultRelationshipLength + defaultNodeRadius * 2;
         }
 
-        dispatch({
-            category: 'GRAPH',
-            type: 'CREATE_NODE',
-            newNodeId: nextAvailableId(getPresentGraph(getState()).nodes),
-            newNodePosition,
-            caption: '',
-            style: {}
-        });
+        if (nodeInfo) {
+            dispatch({
+                category: 'GRAPH',
+                type: 'CREATE_NODE',
+                newNodeId: nodeInfo.id,
+                newNodePosition,
+                caption: nodeInfo.caption,
+                cid: nodeInfo.cid,
+                labels: nodeInfo.labels,
+                properties: nodeInfo.properties,
+                style: nodeInfo.style || {}
+            });
+        } else {
+            dispatch({
+                category: 'GRAPH',
+                type: 'CREATE_NODE',
+                newNodeId: nextAvailableId(getPresentGraph(getState()).nodes),
+                newNodePosition,
+                caption: '',
+                style: {}
+            });
+        }
     };
 
     const createNodesAndRelationships = (sourceNodeIds, targetNodeDisplacement) => (dispatch, getState) => {
@@ -8748,31 +8696,19 @@
                 selectionMarquee
             } = gestures;
             const viewTransformation = displayOptions.viewTransformation;
-            const transform = (position) => viewTransformation.transform(position);
-            const getBbox = (from, to) => [
-                from, {
-                    x: to.x,
-                    y: from.y
-                },
-                to, {
-                    x: from.x,
-                    y: to.y
-                },
-                from
-            ];
 
-            if (selectionMarquee && visualGraph.graph.nodes.length > 0) {
-                const marqueeScreen = {
-                    from: transform(selectionMarquee.from),
-                    to: transform(selectionMarquee.to)
-                };
-                const bBoxScreen = getBbox(marqueeScreen.from, marqueeScreen.to);
+            // if (selectionMarquee && visualGraph.graph.nodes.length > 0) {
+            //     const marqueeScreen = {
+            //         from: transform(selectionMarquee.from),
+            //         to: transform(selectionMarquee.to)
+            //     }
+            //     const bBoxScreen = getBbox(marqueeScreen.from, marqueeScreen.to)
 
-                ctx.save();
-                ctx.strokeStyle = this.marqueeColor;
-                drawPolygon(ctx, bBoxScreen, false, true);
-                ctx.restore();
-            }
+            //     ctx.save()
+            //     ctx.strokeStyle = this.marqueeColor
+            //     drawPolygon(ctx, bBoxScreen, false, true)
+            //     ctx.restore()
+            // }
 
             const drawNewNodeAndRelationship = (sourceNodeId, targetNodeId, newNodeNaturalPosition) => {
                 const sourceNode = visualGraph.nodes[sourceNodeId];
