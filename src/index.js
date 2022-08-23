@@ -1,6 +1,7 @@
 import CanvasAdaptor from "./graphics/utils/CanvasAdaptor";
 import StateController from './stateController/index';
 import { initGraph } from './actions/graph'
+import { clearSelection } from './actions/selection'
 import { windowResized } from "./actions/applicationLayout";
 import MouseHandler from "./interactions/MouseHandler"
 import Gestures from "./graphics/Gestures";
@@ -53,6 +54,8 @@ export default class ArrowApp {
 
         // dispatch initGraph event
         this.stateStore.dispatch(initGraph(graph));
+        // clear selection
+        this.stateStore.dispatch(clearSelection())
         // dispatch windowResized
         this.stateStore.dispatch(windowResized(this.options.width, this.options.height));
 

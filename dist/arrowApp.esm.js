@@ -7433,6 +7433,10 @@ const toggleSelection = (entities, mode) => ({
     mode
 });
 
+const clearSelection = () => ({
+    type: 'CLEAR_SELECTION',
+});
+
 const snapToTargetNode = (visualGraph, excludedNodeId, naturalPosition) => {
     const targetNode = visualGraph.closestNode(naturalPosition, (visualNode, distance) => {
         return !idsMatch(visualNode.id, excludedNodeId) && distance < visualNode.radius
@@ -8870,6 +8874,8 @@ class ArrowApp {
 
         // dispatch initGraph event
         this.stateStore.dispatch(initGraph(graph));
+        // clear selection
+        this.stateStore.dispatch(clearSelection());
         // dispatch windowResized
         this.stateStore.dispatch(windowResized(this.options.width, this.options.height));
 
