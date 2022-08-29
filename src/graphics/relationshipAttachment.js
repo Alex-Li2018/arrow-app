@@ -19,6 +19,7 @@ import {
 } from "./ElbowArrow";
 
 export const computeRelationshipAttachments = (graph, visualNodes) => {
+    // 计算每一个圆形节点上有多少个边
     const nodeAttachments = {}
     const countAttachment = (nodeId, attachmentOptionName) => {
         const nodeCounters = nodeAttachments[nodeId] || (nodeAttachments[nodeId] = {})
@@ -44,7 +45,9 @@ export const computeRelationshipAttachments = (graph, visualNodes) => {
 
     const routedRelationships = graph.relationships.map(relationship => {
         const style = styleAttribute => getStyleSelector(relationship, styleAttribute, graph)
+        // 开始节点的信息
         const startAttachment = centralAttachment(relationship.fromId, style('attachment-start'))
+        // 结束节点的信息
         const endAttachment = centralAttachment(relationship.toId, style('attachment-end'))
 
         const resolvedRelationship = new ResolvedRelationship(

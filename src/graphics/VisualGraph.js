@@ -100,9 +100,11 @@ export default class VisualGraph {
 
     draw(ctx, displayOptions) {
         ctx.save()
+        // 视窗操作
         const viewTransformation = displayOptions.viewTransformation
         ctx.translate(viewTransformation.offset.dx, viewTransformation.offset.dy)
         ctx.scale(viewTransformation.scale)
+        // 绘制边与节点
         this.relationshipBundles.forEach(bundle => bundle.draw(ctx))
         Object.values(this.nodes).forEach(visualNode => {
         visualNode.draw(ctx)

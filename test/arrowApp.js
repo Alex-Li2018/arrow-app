@@ -7075,7 +7075,7 @@
                             40,
                             dimensions
                         );
-                        possibleToDrawParallelArrows &= arrow.drawArcs;
+                        // possibleToDrawParallelArrows &= arrow.drawArcs;
                         arrows[i] = arrow;
                     }
                 }
